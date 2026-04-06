@@ -1,0 +1,10 @@
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+
+[[redirects]]
+  from = "/tables/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
