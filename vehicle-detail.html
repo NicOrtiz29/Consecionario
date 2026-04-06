@@ -510,7 +510,6 @@
         { label:'Motor', value: vehicle.engine || '—', icon:'fa-engine' },
         { label:'Puertas', value: vehicle.doors ? `${vehicle.doors} puertas` : '—', icon:'fa-door-open' },
         { label:'Color', value: vehicle.color || '—', icon:'fa-palette' },
-        { label:'Patente', value: vehicle.patent || 'Consultar', icon:'fa-id-card' },
         { label:'Año', value: vehicle.year || '—', icon:'fa-calendar' },
       ];
       specs.innerHTML = specItems.filter(s=>s.value&&s.value!=='—'&&s.value!=='undefined').map(s=>`
