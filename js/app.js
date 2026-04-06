@@ -107,27 +107,32 @@ function showToast(title, message = '', type = 'default') {
 // ============================================================
 // API HELPERS
 // ============================================================
+function getApiUrl(path) {
+  const base = window.APP_CONFIG?.API_BASE_URL || '';
+  return `${base}${base.endsWith('/') ? '' : '/'}${path}`;
+}
+
 async function fetchVehicles({ page = 1, limit = 100, search = '' } = {}) {
-  const url = `tables/vehicles?page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`;
+  const url = getApiUrl(`tables/vehicles?page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`);
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return res.json();
 }
 
 async function fetchVehicleById(id) {
-  const res = await fetch(`tables/vehicles/${id}`);
+  const res = await fetch(getApiUrl(`tables/vehicles/${id}`));
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return res.json();
 }
 
 async function fetchBranches() {
-  const res = await fetch('tables/branches?limit=50');
+  const res = await fetch(getApiUrl('tables/branches?limit=50'));
   if (!res.ok) return { data: [] };
   return res.json();
 }
 
 async function submitLead(data) {
-  const res = await fetch('tables/leads', {
+  const res = await fetch(getApiUrl('tables/leads'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)

@@ -303,12 +303,18 @@
 
   <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
 
+  <script src="js/config.js"></script>
   <script>
   'use strict';
 
   // Utils (reutilizados)
   const $ = sel => document.querySelector(sel);
   const $$ = sel => [...document.querySelectorAll(sel)];
+
+  function getApiUrl(path) {
+    const base = window.APP_CONFIG?.API_BASE_URL || '';
+    return `${base}${base.endsWith('/') ? '' : '/'}${path}`;
+  }
 
   function formatCurrency(amount) {
     if (!amount) return 'Consultar';
@@ -406,7 +412,7 @@
     const btn = e.target.querySelector('button[type=submit]');
     if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
     try {
-      await fetch('tables/leads', {
+      await fetch(getApiUrl('tables/leads'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -441,7 +447,7 @@
     }
 
     try {
-      const res = await fetch(`tables/vehicles/${id}`);
+      const res = await fetch(getApiUrl(`tables/vehicles/${id}`));
       if (!res.ok) throw new Error('not found');
       vehicle = await res.json();
 

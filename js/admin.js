@@ -48,9 +48,9 @@ const AUTH_KEY = 'bbruno_admin_session';
 let currentUser = null;
 
 const DEMO_USERS = [
-  { id: 'user-admin-1', username: 'admin', password: 'admin2024', full_name: 'Administrador BBruno', role: 'superadmin' },
-  { id: 'user-lucas', username: 'lucas', password: 'lucas123', full_name: 'Lucas', role: 'vendedor' },
-  { id: 'user-kevin', username: 'kevin', password: 'kevin123', full_name: 'Kevin', role: 'vendedor' },
+  { id: 'user-admin-1', username: 'admin', password: 'admin2024', full_name: 'Administrador BBruno', role: window.APP_CONFIG?.ROLES.ADMIN || 'administrador' },
+  { id: 'user-editor-1', username: 'editor', password: 'editor2024', full_name: 'Editor de Inventario', role: window.APP_CONFIG?.ROLES.EDITOR || 'editor' },
+  { id: 'user-viewer-1', username: 'visualizador', password: 'visualizador2024', full_name: 'Consultor Visual', role: window.APP_CONFIG?.ROLES.VIEWER || 'visualizador' }
 ];
 
 function getSession() {
@@ -102,14 +102,25 @@ let pendingDeleteCallback = null;
 let currentPanel = 'dashboard';
 
 // ── API ──
+function getApiUrl(path) {
+  const base = window.APP_CONFIG?.API_BASE_URL || '';
+  return `${base}${base.endsWith('/') ? '' : '/'}${path}`;
+}
+
 async function apiGet(table, params = '') {
-  const res = await fetch(`tables/${table}?limit=200${params}`);
+  const res = await fetch(getApiUrl(`tables/${table}?limit=200${params}`));
   if (!res.ok) throw new Error(`Error ${res.status}`);
   return (await res.json()).data || [];
 }
 
 async function apiCreate(table, data) {
-  const res = await fetch(`tables/${table}`, {
+  // Check permission before sending (frontend gate)
+  if (currentUser?.role === window.APP_CONFIG?.ROLES.VIEWER) {
+    showToast('Permiso denegado', 'Tu rol de visualizador no permite crear registros.', 'warning');
+    throw new Error('Unauthorized');
+  }
+
+  const res = await fetch(getApiUrl(`tables/${table}`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -119,7 +130,12 @@ async function apiCreate(table, data) {
 }
 
 async function apiUpdate(table, id, data) {
-  const res = await fetch(`tables/${table}/${id}`, {
+  if (currentUser?.role === window.APP_CONFIG?.ROLES.VIEWER) {
+    showToast('Permiso denegado', 'Tu rol de visualizador no permite modificar registros.', 'warning');
+    throw new Error('Unauthorized');
+  }
+
+  const res = await fetch(getApiUrl(`tables/${table}/${id}`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data)
@@ -129,7 +145,12 @@ async function apiUpdate(table, id, data) {
 }
 
 async function apiDelete(table, id) {
-  const res = await fetch(`tables/${table}/${id}`, { method: 'DELETE' });
+  if (currentUser?.role !== window.APP_CONFIG?.ROLES.ADMIN) {
+    showToast('Permiso denegado', 'Solo los administradores pueden eliminar registros.', 'warning');
+    throw new Error('Unauthorized');
+  }
+
+  const res = await fetch(getApiUrl(`tables/${table}/${id}`), { method: 'DELETE' });
   if (!res.ok && res.status !== 204) throw new Error(`Error ${res.status}`);
 }
 
@@ -960,7 +981,35 @@ async function initAdmin(user) {
     loadBranches(),
   ]);
 
+  renderRoleBasedUI();
   renderDashboard();
+}
+
+function renderRoleBasedUI() {
+  const role = currentUser?.role;
+  const roles = window.APP_CONFIG?.ROLES;
+
+  if (role === roles.VIEWER) {
+    // Hide all creation buttons
+    $$('#btnNewVehicle, #btnNewMaintenance, #btnNewBranch').forEach(b => b.style.display = 'none');
+    // Hide all save buttons in templates
+    $$('#btnSaveVehicle, #btnSaveMaintenance').forEach(b => {
+      b.disabled = true;
+      b.title = 'Tu rol no permite guardar cambios';
+      b.style.opacity = '0.5';
+    });
+  }
+
+  if (role !== roles.ADMIN) {
+    // Hide delete confirm buttons from modal
+    const deleteBtn = $('#btnConfirmDelete');
+    if (deleteBtn) deleteBtn.style.display = 'none';
+    
+    // Alert that some features are restricted
+    if (role === roles.EDITOR) {
+      console.log('[Admin] Rol editor: Acceso a edición habilitado, borrado restringido.');
+    }
+  }
 }
 
 // ── Login Flow ──
