@@ -363,7 +363,7 @@ function renderDashboard() {
               </div>
               <span class="badge ${st.c}">${st.l}</span>
             </div>
-            ${veh ? `<div style="font-size:.78rem;color:var(--color-yellow);margin-top:.3rem"><i class="fas fa-car" aria-hidden="true"></i> ${veh.year} ${veh.brand} ${veh.model}</div>` : ''}
+            ${veh ? `<div style="font-size:.78rem;color:var(--color-yellow);margin-top:.3rem"><i class="fas fa-car" aria-hidden="true"></i> ${veh.year} ${veh.brand} ${veh.model}${veh.patent ? ' [' + veh.patent + ']' : ''}</div>` : ''}
           </div>`;
       }).join('');
     }
@@ -375,7 +375,7 @@ function renderVehiclesTable(vehicles) {
   const tbody = $('#vehiclesTableBody');
   if (!tbody) return;
   if (!vehicles || !vehicles.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="table-empty"><i class="fas fa-car" aria-hidden="true"></i><br>No hay vehículos</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="table-empty"><i class="fas fa-car" aria-hidden="true"></i><br>No hay vehículos</td></tr>';
     return;
   }
   tbody.innerHTML = vehicles.map(v => {
@@ -392,6 +392,7 @@ function renderVehiclesTable(vehicles) {
           <div class="table-vehicle-name">${v.brand || ''} ${v.model || ''}</div>
           <div class="table-vehicle-sub">${v.version || '—'}</div>
         </td>
+        <td style="font-family:monospace;font-weight:700;letter-spacing:1px">${v.patent || '—'}</td>
         <td>${v.year || '—'}</td>
         <td>${v.mileage ? formatNumber(v.mileage) + ' km' : '—'}</td>
         <td style="font-weight:700;color:var(--color-yellow)">${formatCurrency(v.price)}</td>
@@ -405,7 +406,7 @@ function renderVehiclesTable(vehicles) {
             <button class="btn btn-outline btn-sm btn-icon" title="Editar" onclick="openVehicleModal('${v.id}')" aria-label="Editar vehículo">
               <i class="fas fa-pen" aria-hidden="true"></i>
             </button>
-            <button class="btn btn-danger btn-sm btn-icon" title="Eliminar" onclick="confirmDelete('vehicles','${v.id}','¿Eliminar el vehículo ${v.year} ${v.brand} ${v.model}? Esta acción no se puede deshacer.',loadVehicles)" aria-label="Eliminar vehículo">
+            <button class="btn btn-danger btn-sm btn-icon" title="Eliminar" onclick="confirmDelete('vehicles','${v.id}','¿Eliminar el vehículo ${v.year} ${v.brand} ${v.model} (${v.patent || 'sin patente'})? Esta acción no se puede deshacer.',loadVehicles)" aria-label="Eliminar vehículo">
               <i class="fas fa-trash" aria-hidden="true"></i>
             </button>
           </div>
@@ -564,7 +565,7 @@ function populateVehicleSelect() {
   if (!sel) return;
   const current = sel.value;
   sel.innerHTML = '<option value="">— Seleccionar vehículo —</option>' +
-    allVehicles.map(v => `<option value="${v.id}">${v.year} ${v.brand} ${v.model}${v.patent?' ('+v.patent+')':''}</option>`).join('');
+    allVehicles.map(v => `<option value="${v.id}">${v.year} ${v.brand} ${v.model} ${v.patent ? ' [' + v.patent + ']' : '(Sin patente)'}</option>`).join('');
   if (current) sel.value = current;
 }
 
@@ -577,7 +578,7 @@ function renderMaintenanceList(records) {
   const filtered = records.filter(r => {
     if (!search) return true;
     const v = allVehicles.find(x => x.id === r.vehicle_id);
-    const vName = v ? `${v.year} ${v.brand} ${v.model}` : '';
+    const vName = v ? `${v.year} ${v.brand} ${v.model}${v.patent ? ' ' + v.patent : ''}` : '';
     return vName.toLowerCase().includes(search) || (r.description||'').toLowerCase().includes(search) || (r.type||'').toLowerCase().includes(search);
   });
 
@@ -602,7 +603,7 @@ function renderMaintenanceList(records) {
       <div style="margin-bottom:1.5rem">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid rgba(245,216,10,0.15)">
           <h4 style="font-size:.95rem;font-weight:700;color:var(--color-yellow)">
-            <i class="fas fa-car" aria-hidden="true"></i> ${vName}
+            <i class="fas fa-car" aria-hidden="true"></i> ${vName} ${v && v.patent ? `<span style="font-family:monospace;background:rgba(255,255,255,0.1);padding:0 .4rem;border-radius:3px;margin-left:.5rem;color:var(--color-gray-light)">${v.patent}</span>` : ''}
           </h4>
           <span style="font-size:.75rem;color:var(--color-gray)">${recs.length} registro${recs.length!==1?'s':''}</span>
         </div>
@@ -744,7 +745,8 @@ function renderLeadsList(leads) {
   list.innerHTML = sorted.map(l => {
     const st = getLeadStatusLabel(l.status || 'nuevo');
     const veh = allVehicles.find(v => v.id === l.vehicle_id);
-    const waMsg = `Hola ${l.client_name || 'cliente'}, te contactamos de BBruno Automotores. ${veh ? `Te escribimos por el ${veh.year} ${veh.brand} ${veh.model}.` : ''} ¿Seguís interesado?`;
+    const vText = veh ? `${veh.year} ${veh.brand} ${veh.model}${veh.patent ? ' [' + veh.patent + ']' : ''}` : '';
+    const waMsg = `Hola ${l.client_name || 'cliente'}, te contactamos de BBruno Automotores. ${veh ? `Te escribimos por el ${vText}.` : ''} ¿Seguís interesado?`;
     return `
       <div class="lead-card">
         <div class="lead-card-header">
@@ -763,7 +765,7 @@ function renderLeadsList(leads) {
             </select>
           </div>
         </div>
-        ${veh ? `<div style="font-size:.8rem;color:var(--color-yellow);margin-top:.4rem"><i class="fas fa-car" aria-hidden="true"></i> <a href="vehicle-detail.html?id=${veh.id}" target="_blank" style="color:var(--color-yellow)">${veh.year} ${veh.brand} ${veh.model}</a></div>` : ''}
+        ${veh ? `<div style="font-size:.8rem;color:var(--color-yellow);margin-top:.4rem"><i class="fas fa-car" aria-hidden="true"></i> <a href="vehicle-detail.html?id=${veh.id}" target="_blank" style="color:var(--color-yellow)">${veh.year} ${veh.brand} ${veh.model}${veh.patent ? ' [' + veh.patent + ']' : ''}</a></div>` : ''}
         ${l.message ? `<div class="lead-msg">"${l.message}"</div>` : ''}
         <div style="display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap">
           ${l.client_phone ? `
