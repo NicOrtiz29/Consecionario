@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Detalle del Vehículo | BBruno Automotores</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#F5D80A">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .detail-layout {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 2rem;
+      align-items: start;
+    }
+    .detail-sidebar { position: sticky; top: 100px; }
+
+    .breadcrumb {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.82rem; color: var(--color-gray);
+      margin-bottom: 1.5rem; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--color-gray); transition: var(--transition); }
+    .breadcrumb a:hover { color: var(--color-yellow); }
+    .breadcrumb span.sep { color: rgba(255,255,255,0.2); }
+    .breadcrumb span.current { color: var(--color-white); }
+
+    .inquiry-card {
+      background: var(--color-gray-dark);
+      border: 1px solid rgba(245,216,10,0.15);
+      border-radius: var(--border-radius-lg);
+      padding: 1.5rem;
+      margin-top: 1.25rem;
+    }
+    .inquiry-card h4 {
+      font-size: 0.95rem; font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--color-yellow);
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+
+    .share-btn-group { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 1.25rem; }
+
+    /* Lightbox */
+    .lightbox {
+      position: fixed; inset: 0; z-index: 4000;
+      background: rgba(0,0,0,0.95);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .lightbox-img {
+      max-width: 100%; max-height: 90vh;
+      border-radius: var(--border-radius);
+      object-fit: contain;
+    }
+    .lightbox-close {
+      position: fixed; top: 1rem; right: 1rem;
+      background: var(--color-gray-dark); border: none;
+      color: var(--color-white); width: 44px; height: 44px;
+      border-radius: 50%; font-size: 1.2rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 4001;
+    }
+    .lightbox-nav {
+      position: fixed; top: 50%; transform: translateY(-50%);
+      background: rgba(255,255,255,0.1); border: none;
+      color: var(--color-white); width: 44px; height: 44px;
+      border-radius: 50%; font-size: 1.2rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 4001; transition: var(--transition);
+    }
+    .lightbox-nav:hover { background: var(--color-yellow); color: var(--color-black); }
+    .lightbox-prev { left: 1rem; }
+    .lightbox-next { right: 1rem; }
+    .lightbox-counter {
+      position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+      color: var(--color-gray-light); font-size: 0.85rem;
+      background: rgba(0,0,0,0.5); padding: 0.25rem 1rem; border-radius: 50px;
+    }
+
+    @media (max-width: 900px) {
+      .detail-layout { grid-template-columns: 1fr; }
+      .detail-sidebar { position: static; }
+    }
+
+    /* Page loader */
+    #pageLoader {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--color-carbon);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 1rem;
+    }
+    .loader-logo {
+      width: 64px; height: 64px;
+      background: var(--color-yellow);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 1.5rem;
+      color: var(--color-black);
+      font-family: 'Rajdhani', sans-serif;
+      animation: pulse 1.5s infinite;
+    }
+    .loader-text { font-size: 0.85rem; color: var(--color-gray); }
+  </style>
+</head>
+<body>
+
+  <!-- Page Loader -->
+  <div id="pageLoader" aria-live="polite" aria-busy="true">
+    <div class="loader-logo">BB</div>
+    <div class="spinner"></div>
+    <div class="loader-text">Cargando vehículo...</div>
+  </div>
+
+  <!-- NAVBAR -->
+  <nav class="navbar" role="navigation">
+    <div class="container navbar-inner">
+      <a href="index.html" class="navbar-brand">
+        <div class="navbar-logo">BB</div>
+        <div class="navbar-brand-text">
+          <strong>BBruno</strong>
+          <span>Automotores</span>
+        </div>
+      </a>
+      <ul class="navbar-nav" id="navMenu">
+        <li><a href="index.html" class="nav-link">Inicio</a></li>
+        <li><a href="index.html#catalogo" class="nav-link">Catálogo</a></li>
+        <li><a href="index.html#contacto" class="nav-link">Contacto</a></li>
+        <li><a href="admin.html" class="btn btn-outline btn-sm"><i class="fas fa-lock"></i> Admin</a></li>
+      </ul>
+      <button class="navbar-toggle" id="navToggle" aria-label="Menú" aria-expanded="false">
+        <i class="fas fa-bars"></i>
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN CONTENT -->
+  <main id="mainContent" class="section" style="display:none">
+    <div class="container">
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb" aria-label="Ruta de navegación" id="breadcrumb">
+        <a href="index.html"><i class="fas fa-home"></i> Inicio</a>
+        <span class="sep">›</span>
+        <a href="index.html#catalogo">Catálogo</a>
+        <span class="sep">›</span>
+        <span class="current" id="breadcrumbTitle">Vehículo</span>
+      </nav>
+
+      <div class="detail-layout">
+        <!-- LEFT COLUMN -->
+        <div>
+          <!-- Gallery -->
+          <div class="detail-gallery" id="gallery">
+            <div class="gallery-main">
+              <img id="galleryMainImg" src="" alt="Foto principal del vehículo" onclick="openLightbox(0)" style="cursor:zoom-in">
+            </div>
+            <div class="gallery-thumbs" id="galleryThumbs"></div>
+          </div>
+
+          <!-- Description -->
+          <div style="margin-top:1.5rem;background:var(--color-gray-dark);border-radius:var(--border-radius-lg);padding:1.75rem;border:1px solid rgba(255,255,255,0.06)">
+            <h3 style="font-size:1rem;font-weight:700;margin-bottom:0.75rem;color:var(--color-yellow)">
+              <i class="fas fa-align-left" aria-hidden="true"></i> Descripción
+            </h3>
+            <p id="vehicleDescription" style="color:var(--color-gray-light);font-size:0.9rem;line-height:1.7"></p>
+          </div>
+
+          <!-- Features -->
+          <div id="featuresSection" style="margin-top:1.25rem;background:var(--color-gray-dark);border-radius:var(--border-radius-lg);padding:1.75rem;border:1px solid rgba(255,255,255,0.06);display:none">
+            <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;color:var(--color-yellow)">
+              <i class="fas fa-list-check" aria-hidden="true"></i> Equipamiento
+            </h3>
+            <div class="features-list" id="featuresList"></div>
+          </div>
+
+          <!-- Documents -->
+          <div id="docsSection" style="margin-top:1.25rem;background:var(--color-gray-dark);border-radius:var(--border-radius-lg);padding:1.75rem;border:1px solid rgba(255,255,255,0.06);display:none">
+            <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;color:var(--color-yellow)">
+              <i class="fas fa-file-lines" aria-hidden="true"></i> Documentación
+            </h3>
+            <div id="docsList" style="display:flex;flex-wrap:wrap;gap:0.5rem"></div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN (sidebar) -->
+        <div class="detail-sidebar">
+          <div class="detail-info" id="detailInfo">
+            <div class="detail-brand" id="detailBrand"></div>
+            <h1 class="detail-title" id="detailTitle"></h1>
+            <div class="detail-version" id="detailVersion"></div>
+
+            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap" id="statusBadges"></div>
+
+            <div class="detail-price-section">
+              <div class="detail-price-note" style="margin-bottom:0.25rem">Precio</div>
+              <div class="detail-price" id="detailPrice"></div>
+              <div class="detail-price-note" style="margin-top:0.25rem">Consultar financiación disponible</div>
+            </div>
+
+            <div class="detail-specs" id="detailSpecs"></div>
+
+            <div class="detail-cta" id="detailCTA"></div>
+          </div>
+
+          <!-- Inquiry Form -->
+          <div class="inquiry-card">
+            <h4><i class="fas fa-envelope" aria-hidden="true"></i> Consultar sobre este auto</h4>
+            <form id="inquiryForm" novalidate>
+              <div class="form-group">
+                <label class="form-label" for="leadName">Tu nombre</label>
+                <input type="text" id="leadName" class="form-control" placeholder="Juan Pérez" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="leadPhone">Teléfono</label>
+                <input type="tel" id="leadPhone" class="form-control" placeholder="11-XXXX-XXXX" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="leadMessage">Mensaje (opcional)</label>
+                <textarea id="leadMessage" class="form-control" placeholder="Hola, me interesa este auto..."></textarea>
+              </div>
+              <button type="submit" class="btn btn-primary" style="width:100%">
+                <i class="fas fa-paper-plane" aria-hidden="true"></i>
+                Enviar consulta
+              </button>
+            </form>
+          </div>
+
+          <!-- Share -->
+          <div class="share-btn-group" aria-label="Compartir vehículo">
+            <button onclick="shareVehicle()" class="btn btn-ghost btn-sm">
+              <i class="fas fa-share-nodes" aria-hidden="true"></i> Compartir
+            </button>
+            <a href="index.html#catalogo" class="btn btn-ghost btn-sm">
+              <i class="fas fa-arrow-left" aria-hidden="true"></i> Volver al catálogo
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ERROR STATE -->
+  <div id="errorState" style="display:none;min-height:60vh;display:none;align-items:center;justify-content:center">
+    <div class="empty-state">
+      <i class="fas fa-car-burst" style="color:var(--color-danger)"></i>
+      <h3>Vehículo no encontrado</h3>
+      <p>El vehículo que buscás no está disponible o fue vendido.</p>
+      <a href="index.html#catalogo" class="btn btn-primary" style="margin-top:1.5rem">
+        <i class="fas fa-arrow-left"></i> Ver catálogo completo
+      </a>
+    </div>
+  </div>
+
+  <!-- LIGHTBOX -->
+  <div id="lightbox" class="lightbox" style="display:none" role="dialog" aria-modal="true" aria-label="Galería de fotos">
+    <button class="lightbox-close" onclick="closeLightbox()" aria-label="Cerrar">
+      <i class="fas fa-xmark" aria-hidden="true"></i>
+    </button>
+    <button class="lightbox-nav lightbox-prev" onclick="lightboxNav(-1)" aria-label="Foto anterior">
+      <i class="fas fa-chevron-left" aria-hidden="true"></i>
+    </button>
+    <img id="lightboxImg" class="lightbox-img" src="" alt="Foto del vehículo">
+    <button class="lightbox-nav lightbox-next" onclick="lightboxNav(1)" aria-label="Siguiente foto">
+      <i class="fas fa-chevron-right" aria-hidden="true"></i>
+    </button>
+    <div class="lightbox-counter" id="lightboxCounter"></div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer" style="margin-top:0">
+    <div class="container">
+      <div class="footer-bottom">
+        <span>© 2025 BBruno Automotores · Tristán Suárez, Ezeiza</span>
+        <a href="https://wa.me/541123150051" target="_blank" rel="noopener">
+          <i class="fab fa-whatsapp"></i> 11-2315-0051
+        </a>
+      </div>
+    </div>
+  </footer>
+
+  <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
+
+  <script>
+  'use strict';
+
+  // Utils (reutilizados)
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => [...document.querySelectorAll(sel)];
+
+  function formatCurrency(amount) {
+    if (!amount) return 'Consultar';
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(amount);
+  }
+  function formatNumber(n) { return new Intl.NumberFormat('es-AR').format(n); }
+  function getStatusLabel(s) {
+    const m = { disponible:{label:'Disponible',cls:'badge-success'}, reservado:{label:'Reservado',cls:'badge-warning'}, vendido:{label:'Vendido',cls:'badge-danger'}, en_revision:{label:'En revisión',cls:'badge-info'} };
+    return m[s] || {label:s,cls:'badge-info'};
+  }
+  function getFuelLabel(f) { return {nafta:'Nafta',diesel:'Diésel',gnc:'GNC',nafta_gnc:'Nafta + GNC',hibrido:'Híbrido',electrico:'Eléctrico'}[f]||f; }
+  function getTransLabel(t) { return {manual:'Manual',automatica:'Automática',cvt:'CVT'}[t]||t; }
+
+  function showToast(title, msg, type='default') {
+    const c = $('#toastContainer'); if(!c) return;
+    const icons = {success:'✅',error:'❌',warning:'⚠️',default:'ℹ️'};
+    const t = document.createElement('div');
+    t.className = `toast toast-${type}`;
+    t.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><div class="toast-body"><div class="toast-title">${title}</div><div class="toast-message">${msg||''}</div></div>`;
+    c.appendChild(t);
+    setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(100%)'; t.style.transition='all .3s'; setTimeout(()=>t.remove(),300); }, 4000);
+  }
+
+  // ── State ──
+  let vehicle = null;
+  let photos = [];
+  let currentPhoto = 0;
+  let lightboxIndex = 0;
+
+  // ── Gallery ──
+  function setMainPhoto(idx) {
+    currentPhoto = idx;
+    const img = $('#galleryMainImg');
+    if (img && photos[idx]) img.src = photos[idx];
+    $$('.gallery-thumb').forEach((th, i) => th.classList.toggle('active', i === idx));
+  }
+
+  function openLightbox(idx) {
+    lightboxIndex = idx;
+    const lb = $('#lightbox');
+    const img = $('#lightboxImg');
+    if (!lb || !img) return;
+    img.src = photos[idx] || '';
+    $('#lightboxCounter').textContent = `${idx + 1} / ${photos.length}`;
+    lb.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    $('#lightbox').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  function lightboxNav(dir) {
+    lightboxIndex = (lightboxIndex + dir + photos.length) % photos.length;
+    openLightbox(lightboxIndex);
+  }
+
+  // ── Share ──
+  function shareVehicle() {
+    if (!vehicle) return;
+    const text = `${vehicle.year} ${vehicle.brand} ${vehicle.model} - ${formatCurrency(vehicle.price)} | BBruno Automotores`;
+    if (navigator.share) {
+      navigator.share({ title: text, url: window.location.href }).catch(()=>{});
+    } else {
+      navigator.clipboard?.writeText(window.location.href);
+      showToast('¡Enlace copiado!', 'Podés compartirlo donde quieras.', 'success');
+    }
+  }
+
+  // ── Inquiry Form ──
+  async function handleInquiry(e) {
+    e.preventDefault();
+    const name = $('#leadName')?.value.trim();
+    const phone = $('#leadPhone')?.value.trim();
+    const message = $('#leadMessage')?.value.trim();
+    if (!name || !phone) {
+      showToast('Campos requeridos', 'Por favor ingresá tu nombre y teléfono.', 'warning');
+      return;
+    }
+    const btn = e.target.querySelector('button[type=submit]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
+    try {
+      await fetch('tables/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicle_id: vehicle?.id,
+          client_name: name,
+          client_phone: phone,
+          message: message || `Me interesa el ${vehicle?.year} ${vehicle?.brand} ${vehicle?.model}`,
+          status: 'nuevo'
+        })
+      });
+      showToast('¡Consulta enviada!', 'Te contactaremos a la brevedad. También podés escribirnos por WhatsApp.', 'success');
+      e.target.reset();
+
+      // También abrir WhatsApp
+      const waMsg = `Hola BBruno, soy ${name} y me interesa el ${vehicle?.year} ${vehicle?.brand} ${vehicle?.model}. ${message || '¿Sigue disponible?'}`;
+      setTimeout(() => window.open(`https://wa.me/541123150051?text=${encodeURIComponent(waMsg)}`, '_blank'), 1000);
+    } catch {
+      showToast('Error al enviar', 'Por favor contactanos directamente por WhatsApp.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar consulta'; }
+    }
+  }
+
+  // ── Load Vehicle ──
+  async function loadVehicle() {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+
+    if (!id) {
+      showError();
+      return;
+    }
+
+    try {
+      const res = await fetch(`tables/vehicles/${id}`);
+      if (!res.ok) throw new Error('not found');
+      vehicle = await res.json();
+
+      document.title = `${vehicle.year} ${vehicle.brand} ${vehicle.model} | BBruno Automotores`;
+
+      photos = Array.isArray(vehicle.photos) && vehicle.photos.length
+        ? vehicle.photos
+        : ['https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80'];
+
+      renderDetail();
+      hideLoader();
+    } catch {
+      showError();
+    }
+  }
+
+  function renderDetail() {
+    // Gallery
+    const mainImg = $('#galleryMainImg');
+    if (mainImg) { mainImg.src = photos[0]; mainImg.alt = `${vehicle.year} ${vehicle.brand} ${vehicle.model}`; }
+
+    const thumbsContainer = $('#galleryThumbs');
+    if (thumbsContainer) {
+      thumbsContainer.innerHTML = photos.map((url, i) => `
+        <div class="gallery-thumb ${i === 0 ? 'active' : ''}" onclick="setMainPhoto(${i}); openLightbox(${i})" tabindex="0" onkeydown="if(event.key==='Enter')setMainPhoto(${i})" aria-label="Foto ${i+1}">
+          <img src="${url}" alt="Foto ${i+1}" loading="lazy" onerror="this.parentElement.style.display='none'">
+        </div>
+      `).join('');
+    }
+
+    // Breadcrumb
+    const bc = $('#breadcrumbTitle');
+    if (bc) bc.textContent = `${vehicle.year} ${vehicle.brand} ${vehicle.model}`;
+
+    // Info
+    const brand = $('#detailBrand'); if(brand) brand.textContent = vehicle.brand || '';
+    const title = $('#detailTitle'); if(title) title.textContent = `${vehicle.year || ''} ${vehicle.model || ''}`;
+    const version = $('#detailVersion'); if(version) version.textContent = vehicle.version || '';
+    const price = $('#detailPrice'); if(price) price.textContent = formatCurrency(vehicle.price);
+
+    // Badges
+    const badges = $('#statusBadges');
+    if (badges) {
+      const st = getStatusLabel(vehicle.status || 'disponible');
+      badges.innerHTML = `<span class="badge ${st.cls}">${st.label}</span>`;
+      if (vehicle.condition) {
+        const conds = {nuevo:'Nuevo',usado_excelente:'Usado - Excelente',usado_bueno:'Usado - Bueno',usado_regular:'Usado - Regular'};
+        badges.innerHTML += ` <span class="badge badge-info">${conds[vehicle.condition]||vehicle.condition}</span>`;
+      }
+      if (vehicle.is_featured) badges.innerHTML += ` <span class="badge badge-yellow">⭐ Destacado</span>`;
+    }
+
+    // Specs
+    const specs = $('#detailSpecs');
+    if (specs) {
+      const specItems = [
+        { label:'Kilometraje', value: vehicle.mileage ? `${formatNumber(vehicle.mileage)} km` : '—', icon:'fa-road' },
+        { label:'Combustible', value: getFuelLabel(vehicle.fuel_type), icon:'fa-gas-pump' },
+        { label:'Transmisión', value: getTransLabel(vehicle.transmission), icon:'fa-gears' },
+        { label:'Motor', value: vehicle.engine || '—', icon:'fa-engine' },
+        { label:'Puertas', value: vehicle.doors ? `${vehicle.doors} puertas` : '—', icon:'fa-door-open' },
+        { label:'Color', value: vehicle.color || '—', icon:'fa-palette' },
+        { label:'Patente', value: vehicle.patent || 'Consultar', icon:'fa-id-card' },
+        { label:'Año', value: vehicle.year || '—', icon:'fa-calendar' },
+      ];
+      specs.innerHTML = specItems.filter(s=>s.value&&s.value!=='—'&&s.value!=='undefined').map(s=>`
+        <div class="detail-spec">
+          <div class="detail-spec-label"><i class="fas ${s.icon}" aria-hidden="true"></i> ${s.label}</div>
+          <div class="detail-spec-value">${s.value}</div>
+        </div>
+      `).join('');
+    }
+
+    // CTA
+    const cta = $('#detailCTA');
+    if (cta) {
+      const isAvail = vehicle.status === 'disponible' || !vehicle.status;
+      const waMsg = `Hola BBruno! Me interesa el ${vehicle.year} ${vehicle.brand} ${vehicle.model}. ¿Sigue disponible?`;
+      cta.innerHTML = isAvail ? `
+        <a href="https://wa.me/541123150051?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn whatsapp-btn btn-lg" style="flex:1;background:#25D366;color:#fff;border-color:#25D366">
+          <i class="fab fa-whatsapp" aria-hidden="true"></i> Consultar por WhatsApp
+        </a>
+        <a href="tel:+541123150051" class="btn btn-outline">
+          <i class="fas fa-phone" aria-hidden="true"></i> Llamar
+        </a>
+      ` : `<span class="badge badge-${vehicle.status==='vendido'?'danger':'warning'}" style="font-size:.9rem;padding:.5rem 1rem">${vehicle.status==='vendido'?'Este vehículo ya fue vendido':'Reservado - Consultar disponibilidad'}</span>`;
+    }
+
+    // Description
+    const desc = $('#vehicleDescription');
+    if (desc) desc.textContent = vehicle.description || 'Sin descripción disponible.';
+
+    // Features
+    const featSection = $('#featuresSection');
+    const featList = $('#featuresList');
+    const features = Array.isArray(vehicle.features) ? vehicle.features : [];
+    if (features.length && featSection && featList) {
+      featSection.style.display = 'block';
+      featList.innerHTML = features.map(f=>`<span class="feature-tag"><i class="fas fa-check" aria-hidden="true"></i>${f}</span>`).join('');
+    }
+
+    // Documents
+    const docsSection = $('#docsSection');
+    const docsList = $('#docsList');
+    const docs = Array.isArray(vehicle.documents) ? vehicle.documents : [];
+    if (docs.length && docsSection && docsList) {
+      docsSection.style.display = 'block';
+      docsList.innerHTML = docs.map(d=>`
+        <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .75rem;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.25);border-radius:50px;font-size:.8rem;color:var(--color-success)">
+          <i class="fas fa-check-circle" aria-hidden="true"></i>${d}
+        </span>`).join('');
+    }
+  }
+
+  function showError() {
+    hideLoader();
+    const main = $('#mainContent'); if(main) main.style.display='none';
+    const err = $('#errorState'); if(err) { err.style.display='flex'; err.setAttribute('aria-live','polite'); }
+  }
+
+  function hideLoader() {
+    const loader = $('#pageLoader');
+    if (loader) {
+      loader.style.opacity = '0';
+      loader.style.transition = 'opacity 0.4s';
+      setTimeout(() => { loader.style.display = 'none'; }, 400);
+    }
+    const main = $('#mainContent');
+    if (main) main.style.display = 'block';
+  }
+
+  // ── Navbar ──
+  const toggle = $('#navToggle'), menu = $('#navMenu');
+  if (toggle && menu) {
+    toggle.addEventListener('click', () => {
+      const open = menu.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.innerHTML = open ? '<i class="fas fa-xmark"></i>' : '<i class="fas fa-bars"></i>';
+    });
+  }
+
+  // ── Keyboard ──
+  document.addEventListener('keydown', e => {
+    if ($('#lightbox')?.style.display !== 'none') {
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') lightboxNav(-1);
+      if (e.key === 'ArrowRight') lightboxNav(1);
+    }
+  });
+
+  // ── PWA ──
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+  // ── Init ──
+  document.addEventListener('DOMContentLoaded', () => {
+    loadVehicle();
+    $('#inquiryForm')?.addEventListener('submit', handleInquiry);
+  });
+
+  // Exponer funciones al scope global
+  window.setMainPhoto = setMainPhoto;
+  window.openLightbox = openLightbox;
+  window.closeLightbox = closeLightbox;
+  window.lightboxNav = lightboxNav;
+  window.shareVehicle = shareVehicle;
+  </script>
+</body>
+</html>

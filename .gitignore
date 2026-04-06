@@ -1,0 +1,14 @@
+# Logs
+*.log
+npm-debug.log*
+
+# Static data if any
+tables/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Private files if any
+.env
+.env.local
