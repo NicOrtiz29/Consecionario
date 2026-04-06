@@ -223,6 +223,7 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .navbar-brand {
   display: flex; align-items: center; gap: 0.75rem;
 }
+.navbar-logo-img { height: 44px; width: auto; border-radius: 6px; flex-shrink: 0; }
 .navbar-logo {
   width: 44px; height: 44px;
   background: var(--color-yellow);
