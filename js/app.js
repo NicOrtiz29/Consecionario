@@ -8,6 +8,16 @@
 // ============================================================
 // UTILS
 // ============================================================
+window.changeCardPhoto = function(el, src, index) {
+  const wrapper = el.closest('.vehicle-card-img-wrapper');
+  const img = wrapper.querySelector('.vehicle-card-img');
+  const dots = wrapper.querySelectorAll('.photo-indicators .dot');
+  if (img.src !== src) {
+    img.src = src;
+    dots.forEach((dot, i) => dot.classList.toggle('active', i === index));
+  }
+};
+
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
 
@@ -138,10 +148,25 @@ let branchesMap = {};
 // ============================================================
 function renderVehicleCard(v) {
   const status = getStatusLabel(v.status || 'disponible');
-  const photos = Array.isArray(v.photos) && v.photos.length ? v.photos : ['https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80'];
+  const photos = Array.isArray(v.photos) && v.photos.length ? v.photos.slice(0, 8) : ['https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80'];
   const branch = branchesMap[v.branch_id];
   const branchName = branch ? branch.city || branch.name : 'Tristán Suárez';
   const isAvailable = v.status === 'disponible' || !v.status;
+
+  // Generar segmentos de hover si hay múltiples fotos
+  let hoverSegments = '';
+  let indicators = '';
+  if (photos.length > 1) {
+    hoverSegments = photos.map((p, i) => `
+      <div class="photo-segment" onmouseenter="changeCardPhoto(this, '${p}', ${i})"></div>
+    `).join('');
+    
+    indicators = `
+      <div class="photo-indicators">
+        ${photos.map((_, i) => `<span class="dot ${i === 0 ? 'active' : ''}"></span>`).join('')}
+      </div>
+    `;
+  }
 
   return `
     <article class="vehicle-card" 
@@ -157,6 +182,13 @@ function renderVehicleCard(v) {
           alt="${v.year} ${v.brand} ${v.model}"
           loading="lazy"
           onerror="this.src='https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80'">
+        
+        <div class="photo-segments-container">
+          ${hoverSegments}
+        </div>
+        
+        ${indicators}
+
         <div class="vehicle-card-badge">
           <span class="badge ${status.cls}">${status.label}</span>
         </div>

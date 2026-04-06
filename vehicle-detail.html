@@ -54,6 +54,22 @@
       display: flex; align-items: center; justify-content: center;
       padding: 1rem;
     }
+    #galleryMainImg {
+      transition: opacity 0.2s ease;
+    }
+    .gallery-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      background: rgba(0,0,0,0.4); border: none;
+      color: #fff; width: 44px; height: 44px;
+      border-radius: 50%; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 10; opacity: 0; transition: all 0.3s;
+      backdrop-filter: blur(4px);
+    }
+    .gallery-main:hover .gallery-nav { opacity: 1; }
+    .gallery-prev { left: 1rem; }
+    .gallery-next { right: 1rem; }
+    .gallery-nav:hover { background: var(--color-yellow); color: var(--color-black); }
     .lightbox-img {
       max-width: 100%; max-height: 90vh;
       border-radius: var(--border-radius);
@@ -156,9 +172,14 @@
         <!-- LEFT COLUMN -->
         <div>
           <!-- Gallery -->
-          <div class="detail-gallery" id="gallery">
-            <div class="gallery-main">
-              <img id="galleryMainImg" src="" alt="Foto principal del vehículo" onclick="openLightbox(0)" style="cursor:zoom-in">
+            <div class="gallery-main" style="position:relative">
+              <button class="gallery-nav gallery-prev" onclick="navGallery(-1)" aria-label="Foto anterior">
+                <i class="fas fa-chevron-left"></i>
+              </button>
+              <img id="galleryMainImg" src="" alt="Foto principal del vehículo" onclick="openLightbox(currentPhoto)" style="cursor:zoom-in">
+              <button class="gallery-nav gallery-next" onclick="navGallery(1)" aria-label="Siguiente foto">
+                <i class="fas fa-chevron-right"></i>
+              </button>
             </div>
             <div class="gallery-thumbs" id="galleryThumbs"></div>
           </div>
@@ -325,8 +346,22 @@
   function setMainPhoto(idx) {
     currentPhoto = idx;
     const img = $('#galleryMainImg');
-    if (img && photos[idx]) img.src = photos[idx];
-    $$('.gallery-thumb').forEach((th, i) => th.classList.toggle('active', i === idx));
+    if (img && photos[idx]) {
+      img.style.opacity = '0';
+      setTimeout(() => {
+        img.src = photos[idx];
+        img.style.opacity = '1';
+      }, 150);
+    }
+    $$('.gallery-thumb').forEach((th, i) => {
+      th.classList.toggle('active', i === idx);
+      if (i === idx) th.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    });
+  }
+
+  function navGallery(dir) {
+    const nextIdx = (currentPhoto + dir + photos.length) % photos.length;
+    setMainPhoto(nextIdx);
   }
 
   function openLightbox(idx) {

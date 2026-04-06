@@ -389,7 +389,35 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .vehicle-card-img-wrapper {
   position: relative; overflow: hidden;
   aspect-ratio: 16/9;
+  background: var(--color-gray-dark);
 }
+
+/* Hover Gallery Mercado Libre Style */
+.photo-segments-container {
+  position: absolute; inset: 0;
+  display: flex; z-index: 5;
+}
+.photo-segment {
+  flex: 1; height: 100%;
+}
+.photo-indicators {
+  position: absolute; bottom: 8px; left: 0; right: 0;
+  display: flex; justify-content: center; gap: 4px;
+  z-index: 6; pointer-events: none;
+  opacity: 0; transition: var(--transition);
+}
+.vehicle-card:hover .photo-indicators { opacity: 1; }
+.photo-indicators .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+  transition: all 0.2s;
+}
+.photo-indicators .dot.active {
+  background: var(--color-yellow);
+  transform: scale(1.2);
+  box-shadow: 0 0 4px rgba(245,216,10,0.5);
+}
+
 .vehicle-card-img {
   width: 100%; height: 100%; object-fit: cover;
   transition: transform 0.5s ease;

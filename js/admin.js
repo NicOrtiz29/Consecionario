@@ -197,18 +197,34 @@ function initTagsInput(containerId, inputId, arrayRef) {
 function renderPhotoPreviews() {
   const grid = $('#photoPreviews');
   if (!grid) return;
+  const count = vehiclePhotos.length;
   grid.innerHTML = vehiclePhotos.map((url, i) => `
     <div class="photo-preview-item">
       <img src="${url}" alt="Foto ${i+1}" onerror="this.src='https://via.placeholder.com/120x80/2B2B2B/888?text=Error'">
       <button onclick="removePhoto(${i})" aria-label="Quitar foto ${i+1}" title="Quitar">✕</button>
     </div>
-  `).join('') + `
+  `).join('') + (count < 8 ? `
     <div class="photo-add-btn" onclick="$('#vfPhotoUrl').focus()" role="button" tabindex="0" aria-label="Agregar foto">
       <i class="fas fa-plus" aria-hidden="true"></i>
       <span>Agregar foto</span>
-    </div>
-  `;
+    </div>` : '');
+  
+  const label = $('#photoCountLabel');
+  if (label) label.textContent = `(${count}/8 fotos)`;
 }
+
+window.addPhoto = function() {
+  const input = $('#vfPhotoUrl');
+  const url = input?.value.trim();
+  if (!url) return;
+  if (vehiclePhotos.length >= 8) {
+    showToast('Límite alcanzado', 'Podés cargar hasta 8 fotos por vehículo.', 'warning');
+    return;
+  }
+  vehiclePhotos.push(url);
+  renderPhotoPreviews();
+  input.value = '';
+};
 
 window.removePhoto = function(idx) {
   vehiclePhotos.splice(idx, 1);
@@ -897,13 +913,7 @@ async function initAdmin(user) {
   $('#vehicleStatusFilter')?.addEventListener('change', filterVehiclesTable);
 
   // Add photo
-  $('#btnAddPhoto')?.addEventListener('click', () => {
-    const url = $('#vfPhotoUrl')?.value.trim();
-    if (!url) return;
-    vehiclePhotos.push(url);
-    $('#vfPhotoUrl').value = '';
-    renderPhotoPreviews();
-  });
+  $('#btnAddPhoto')?.addEventListener('click', window.addPhoto);
   $('#vfPhotoUrl')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') { e.preventDefault(); $('#btnAddPhoto')?.click(); }
   });
