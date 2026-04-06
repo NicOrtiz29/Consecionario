@@ -1084,3 +1084,166 @@ window.updateLeadStatus = updateLeadStatus;
 window.switchPanel = switchPanel;
 window.closeModal = closeModal;
 window.$ = $;
+window.toggleExcelDropdown = toggleExcelDropdown;
+window.downloadVehicleTemplate = downloadVehicleTemplate;
+window.exportVehiclesToExcel = exportVehiclesToExcel;
+window.handleExcelImport = handleExcelImport;
+
+// ── Excel Functions ──
+function toggleExcelDropdown() {
+  const dd = $('#excelDropdown');
+  if (!dd) return;
+  const isShow = dd.style.display === 'block';
+  dd.style.display = isShow ? 'none' : 'block';
+  // Close on click outside
+  if (!isShow) {
+    const closer = (e) => {
+      if (!e.target.closest('#btnExcelActions')) {
+        dd.style.display = 'none';
+        document.removeEventListener('click', closer);
+      }
+    };
+    setTimeout(() => document.addEventListener('click', closer), 10);
+  }
+}
+
+const EXCEL_MAPPING = {
+  'Marca': 'brand',
+  'Modelo': 'model',
+  'Año': 'year',
+  'Versión': 'version',
+  'Color': 'color',
+  'Kilometraje': 'mileage',
+  'Precio': 'price',
+  'Estado': 'status',
+  'Combustible': 'fuel_type',
+  'Transmisión': 'transmission',
+  'Puertas': 'doors',
+  'Motor': 'engine',
+  'Patente': 'patent',
+  'VIN': 'vin',
+  'Descripción': 'description',
+  'Destacado': 'is_featured',
+  'Fotos': 'photos',
+  'Equipamiento': 'features'
+};
+
+function downloadVehicleTemplate() {
+  const headers = Object.keys(EXCEL_MAPPING);
+  const sampleData = [
+    {
+      'Marca': 'Toyota', 'Modelo': 'Corolla', 'Año': 2024, 'Versión': 'SEG Hybrid', 'Color': 'Blanco',
+      'Kilometraje': 0, 'Precio': 35000000, 'Estado': 'disponible', 'Combustible': 'hibrido',
+      'Transmisión': 'automatica', 'Puertas': 4, 'Motor': '1.8 HV', 'Patente': 'AF123JK', 'VIN': '',
+      'Descripción': 'Excelente unidad 0km...', 'Destacado': 'no',
+      'Fotos': 'https://ejemplo.com/foto1.jpg, https://ejemplo.com/foto2.jpg',
+      'Equipamiento': 'Techo solar, Control crucero, Apple CarPlay'
+    }
+  ];
+
+  const ws = XLSX.utils.json_to_sheet(sampleData, { header: headers });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+  XLSX.writeFile(wb, "Planilla_Carga_BBruno.xlsx");
+  showToast('Plantilla descargada', 'Completá los campos y volvé a subir el archivo.', 'info');
+}
+
+function exportVehiclesToExcel() {
+  if (!allVehicles.length) {
+    showToast('Sin datos', 'No hay vehículos para exportar.', 'warning');
+    return;
+  }
+
+  const exportData = allVehicles.map(v => {
+    const row = {};
+    Object.entries(EXCEL_MAPPING).forEach(([header, key]) => {
+      let val = v[key];
+      if (key === 'photos') val = Array.isArray(val) ? val.join(', ') : '';
+      if (key === 'features') val = Array.isArray(val) ? val.join(', ') : '';
+      if (key === 'is_featured') val = val ? 'si' : 'no';
+      row[header] = val || '';
+    });
+    return row;
+  });
+
+  const ws = XLSX.utils.json_to_sheet(exportData, { header: Object.keys(EXCEL_MAPPING) });
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Stock");
+  XLSX.writeFile(wb, `Stock_BBruno_${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('Exportación exitosa', 'Se descargó el inventario completo.', 'success');
+}
+
+function handleExcelImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet);
+
+      if (!rows.length) {
+        showToast('Archivo vacío', 'No se encontraron filas con datos.', 'warning');
+        return;
+      }
+
+      showToast('Importando...', `Procesando ${rows.length} vehículos. Por favor esperá.`, 'info');
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const row of rows) {
+        const vehicleData = {
+          branch_id: 'branch-1' // Default
+        };
+        
+        Object.entries(EXCEL_MAPPING).forEach(([header, key]) => {
+          let val = row[header];
+          if (val === undefined) val = '';
+          
+          if (key === 'photos') {
+             vehicleData[key] = val ? String(val).split(',').map(s => s.trim()).filter(Boolean) : [];
+          } else if (key === 'features') {
+             vehicleData[key] = val ? String(val).split(',').map(s => s.trim()).filter(Boolean) : [];
+          } else if (key === 'is_featured') {
+             vehicleData[key] = String(val).toLowerCase() === 'si' || val === true;
+          } else if (key === 'mileage' || key === 'price' || key === 'year' || key === 'doors') {
+             vehicleData[key] = val ? parseFloat(val) : 0;
+          } else {
+             vehicleData[key] = String(val || '').trim();
+          }
+        });
+
+        // Validation
+        if (!vehicleData.brand || !vehicleData.model) {
+          errorCount++;
+          continue;
+        }
+
+        try {
+          await apiPost('vehicles', vehicleData);
+          successCount++;
+        } catch (err) {
+          console.error('[Import] Error subiendo fila:', vehicleData, err);
+          errorCount++;
+        }
+      }
+
+      await loadVehicles();
+      if (successCount > 0) {
+        showToast('Importación finalizada', `Se cargaron ${successCount} vehículos correctamente. ${errorCount ? `Hubo ${errorCount} errores.` : ''}`, 'success');
+      } else {
+        showToast('Error', 'No se pudo cargar ningún vehículo. Revisá el formato.', 'danger');
+      }
+    } catch (err) {
+      console.error('[Import] Error leyendo archivo:', err);
+      showToast('Error de archivo', 'No se pudo leer el Excel. Asegurate de que sea un archivo válido.', 'danger');
+    } finally {
+      event.target.value = ''; // Reset input
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
