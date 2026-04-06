@@ -1084,29 +1084,10 @@ window.updateLeadStatus = updateLeadStatus;
 window.switchPanel = switchPanel;
 window.closeModal = closeModal;
 window.$ = $;
-window.toggleExcelDropdown = toggleExcelDropdown;
-window.downloadVehicleTemplate = downloadVehicleTemplate;
 window.exportVehiclesToExcel = exportVehiclesToExcel;
 window.handleExcelImport = handleExcelImport;
 
 // ── Excel Functions ──
-function toggleExcelDropdown() {
-  const dd = $('#excelDropdown');
-  if (!dd) return;
-  const isShow = dd.style.display === 'block';
-  dd.style.display = isShow ? 'none' : 'block';
-  // Close on click outside
-  if (!isShow) {
-    const closer = (e) => {
-      if (!e.target.closest('#btnExcelActions')) {
-        dd.style.display = 'none';
-        document.removeEventListener('click', closer);
-      }
-    };
-    setTimeout(() => document.addEventListener('click', closer), 10);
-  }
-}
-
 const EXCEL_MAPPING = {
   'Marca': 'brand',
   'Modelo': 'model',
@@ -1128,49 +1109,40 @@ const EXCEL_MAPPING = {
   'Equipamiento': 'features'
 };
 
-function downloadVehicleTemplate() {
-  const headers = Object.keys(EXCEL_MAPPING);
-  const sampleData = [
-    {
-      'Marca': 'Toyota', 'Modelo': 'Corolla', 'Año': 2024, 'Versión': 'SEG Hybrid', 'Color': 'Blanco',
-      'Kilometraje': 0, 'Precio': 35000000, 'Estado': 'disponible', 'Combustible': 'hibrido',
-      'Transmisión': 'automatica', 'Puertas': 4, 'Motor': '1.8 HV', 'Patente': 'AF123JK', 'VIN': '',
-      'Descripción': 'Excelente unidad 0km...', 'Destacado': 'no',
-      'Fotos': 'https://ejemplo.com/foto1.jpg, https://ejemplo.com/foto2.jpg',
-      'Equipamiento': 'Techo solar, Control crucero, Apple CarPlay'
-    }
-  ];
-
-  const ws = XLSX.utils.json_to_sheet(sampleData, { header: headers });
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
-  XLSX.writeFile(wb, "Planilla_Carga_BBruno.xlsx");
-  showToast('Plantilla descargada', 'Completá los campos y volvé a subir el archivo.', 'info');
-}
-
 function exportVehiclesToExcel() {
-  if (!allVehicles.length) {
-    showToast('Sin datos', 'No hay vehículos para exportar.', 'warning');
-    return;
-  }
+  let exportData = [];
 
-  const exportData = allVehicles.map(v => {
-    const row = {};
-    Object.entries(EXCEL_MAPPING).forEach(([header, key]) => {
-      let val = v[key];
-      if (key === 'photos') val = Array.isArray(val) ? val.join(', ') : '';
-      if (key === 'features') val = Array.isArray(val) ? val.join(', ') : '';
-      if (key === 'is_featured') val = val ? 'si' : 'no';
-      row[header] = val || '';
+  if (allVehicles.length > 0) {
+    exportData = allVehicles.map(v => {
+      const row = {};
+      Object.entries(EXCEL_MAPPING).forEach(([header, key]) => {
+        let val = v[key];
+        if (key === 'photos') val = Array.isArray(val) ? val.join(', ') : '';
+        if (key === 'features') val = Array.isArray(val) ? val.join(', ') : '';
+        if (key === 'is_featured') val = val ? 'si' : 'no';
+        row[header] = val || '';
+      });
+      return row;
     });
-    return row;
-  });
+    showToast('Exportación exitosa', 'Se descargó el inventario completo.', 'success');
+  } else {
+    // Si no hay datos, actúa como plantilla con una fila de ejemplo
+    exportData = [
+      {
+        'Marca': 'Ejemplo: Toyota', 'Modelo': 'Corolla', 'Año': 2024, 'Versión': 'SEG Hybrid', 'Color': 'Blanco',
+        'Kilometraje': 0, 'Precio': 35000000, 'Estado': 'disponible', 'Combustible': 'hibrido',
+        'Transmisión': 'automatica', 'Puertas': 4, 'Motor': '1.8 HV', 'Patente': 'AF123JK', 'VIN': '',
+        'Descripción': 'Excelente unidad...', 'Destacado': 'no',
+        'Fotos': 'https://link-a-foto.jpg', 'Equipamiento': 'Techo, Cuero, GPS'
+      }
+    ];
+    showToast('Plantilla lista', 'Se descargó el formato para carga masiva (vacío).', 'info');
+  }
 
   const ws = XLSX.utils.json_to_sheet(exportData, { header: Object.keys(EXCEL_MAPPING) });
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Stock");
+  XLSX.utils.book_append_sheet(wb, ws, "Stock_BBruno");
   XLSX.writeFile(wb, `Stock_BBruno_${new Date().toISOString().split('T')[0]}.xlsx`);
-  showToast('Exportación exitosa', 'Se descargó el inventario completo.', 'success');
 }
 
 function handleExcelImport(event) {

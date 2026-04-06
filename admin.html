@@ -507,19 +507,11 @@
                     <option value="en_revision">En revisión</option>
                   </select>
                   <div style="display:flex;gap:.5rem">
-                    <button class="btn btn-outline btn-sm" id="btnExcelActions" onclick="toggleExcelDropdown()" style="position:relative">
-                      <i class="fas fa-file-excel" aria-hidden="true"></i> Excel <i class="fas fa-caret-down" style="font-size:.7rem"></i>
-                      <div id="excelDropdown" class="dropdown-menu" style="display:none;position:absolute;top:100%;right:0;width:180px;z-index:100;background:var(--color-gray-dark);border:1px solid rgba(245,216,10,0.2);box-shadow:var(--shadow-lg);border-radius:var(--border-radius);margin-top:.5rem">
-                        <button onclick="downloadVehicleTemplate()" class="dropdown-item" style="display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;width:100%;background:none;border:none;color:var(--color-white);cursor:pointer;font-size:0.85rem">
-                          <i class="fas fa-download" style="color:var(--color-yellow)"></i> Descargar Plantilla
-                        </button>
-                        <button onclick="$('#excelInput').click()" class="dropdown-item" style="display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;width:100%;background:none;border:none;color:var(--color-white);cursor:pointer;font-size:0.85rem">
-                          <i class="fas fa-upload" style="color:var(--color-success)"></i> Importar Excel
-                        </button>
-                        <button onclick="exportVehiclesToExcel()" class="dropdown-item" style="display:flex;align-items:center;gap:.6rem;padding:.75rem 1rem;width:100%;background:none;border:none;color:var(--color-white);cursor:pointer;font-size:0.85rem;border-top:1px solid rgba(255,255,255,0.05)">
-                          <i class="fas fa-file-export" style="color:var(--color-blue)"></i> Exportar Todo
-                        </button>
-                      </div>
+                    <button class="btn btn-outline btn-sm" onclick="exportVehiclesToExcel()" title="Exportar stock / Descargar planilla">
+                      <i class="fas fa-download" aria-hidden="true"></i> Exportar
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="$('#excelInput').click()" title="Importar desde Excel">
+                      <i class="fas fa-upload" aria-hidden="true"></i> Importar
                     </button>
                     <input type="file" id="excelInput" style="display:none" accept=".xlsx, .xls, .csv" onchange="handleExcelImport(event)">
                     
