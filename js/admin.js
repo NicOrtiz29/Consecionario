@@ -1158,7 +1158,7 @@ function handleExcelImport(event) {
         }
 
         try {
-          await db.upsert('vehicles', vehicleData, 'patent');
+          await window.SupabaseClient.upsert('vehicles', vehicleData, 'patent');
           successCount++;
         } catch (err) {
           console.error('[Import] Error subiendo fila:', vehicleData, err);
