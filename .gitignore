@@ -2,6 +2,10 @@
 *.log
 npm-debug.log*
 
+# Dependencies
+node_modules/
+api/node_modules/
+
 # Static data if any
 tables/
 
