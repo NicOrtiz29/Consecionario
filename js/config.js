@@ -1,20 +1,22 @@
 /**
  * Configuración global de BBruno Automotores
- * Este archivo centraliza los parámetros del frontend para facilitar
- * el cambio entre entornos (Desarrollo local / Producción Netlify)
+ * ==================================================
+ * Centraliza los parámetros del frontend.
+ * Supabase como backend de datos.
  */
 
 window.APP_CONFIG = {
-  // En producción, si la base cambia a Supabase u otro, solo actualizamos aquí
-  API_BASE_URL: window.location.hostname === 'localhost' ? '' : '/.netlify/functions/api',
-  
+  // Supabase
+  SUPABASE_URL: 'https://oxgwzytwfcvayozaecyn.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94Z3d6eXR3ZmN2YXlvemFlY3luIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNjgxNzgsImV4cCI6MjA5MDY0NDE3OH0.NiQ-0l8-9NM7WvkbhFx3oAHNk0pV6vIiZNOP_FDZVro',
+
   // Roles definidos en la aplicación
   ROLES: {
-    ADMIN: 'administrador', // Acceso total
-    EDITOR: 'editor',       // Puede editar inventario, pero no configuraciones críticas
-    VIEWER: 'visualizador'  // Solo lectura (ver stock, dashboard)
+    ADMIN: 'administrador',
+    EDITOR: 'editor',
+    VIEWER: 'visualizador'
   },
-  
+
   // Versión del frontend
-  VERSION: '2.0.0-pwa'
+  VERSION: '3.0.0-supabase'
 };

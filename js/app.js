@@ -105,40 +105,25 @@ function showToast(title, message = '', type = 'default') {
 }
 
 // ============================================================
-// API HELPERS
+// API HELPERS (Supabase)
 // ============================================================
-function getApiUrl(path) {
-  const base = window.APP_CONFIG?.API_BASE_URL || '';
-  return `${base}${base.endsWith('/') ? '' : '/'}${path}`;
-}
+const db = window.SupabaseClient;
 
-async function fetchVehicles({ page = 1, limit = 100, search = '' } = {}) {
-  const url = getApiUrl(`tables/vehicles?page=${page}&limit=${limit}${search ? `&search=${encodeURIComponent(search)}` : ''}`);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Error ${res.status}`);
-  return res.json();
+async function fetchVehicles({ limit = 100 } = {}) {
+  const data = await db.select('vehicles', { order: 'created_at.desc', limit });
+  return data; // Returns array directly
 }
 
 async function fetchVehicleById(id) {
-  const res = await fetch(getApiUrl(`tables/vehicles/${id}`));
-  if (!res.ok) throw new Error(`Error ${res.status}`);
-  return res.json();
+  return db.selectById('vehicles', id);
 }
 
 async function fetchBranches() {
-  const res = await fetch(getApiUrl('tables/branches?limit=50'));
-  if (!res.ok) return { data: [] };
-  return res.json();
+  return db.select('branches');
 }
 
 async function submitLead(data) {
-  const res = await fetch(getApiUrl('tables/leads'), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) throw new Error(`Error ${res.status}`);
-  return res.json();
+  return db.insert('leads', data);
 }
 
 // ============================================================
@@ -376,7 +361,7 @@ async function init() {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  // Cargar datos
+  // Cargar datos desde Supabase
   try {
     const [vehiclesData, branchesData] = await Promise.all([
       fetchVehicles({ limit: 100 }),
@@ -384,9 +369,9 @@ async function init() {
     ]);
 
     // Branches map
-    (branchesData.data || []).forEach(b => { branchesMap[b.id] = b; });
+    (branchesData || []).forEach(b => { branchesMap[b.id] = b; });
 
-    allVehicles = vehiclesData.data || [];
+    allVehicles = vehiclesData || [];
     filteredVehicles = allVehicles.filter(v => v.status !== 'vendido');
 
     // Actualizar stat de vehículos

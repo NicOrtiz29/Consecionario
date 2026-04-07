@@ -303,17 +303,14 @@
   <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
 
   <script src="js/config.js"></script>
+  <script src="js/supabase-client.js"></script>
   <script>
   'use strict';
 
   // Utils (reutilizados)
   const $ = sel => document.querySelector(sel);
   const $$ = sel => [...document.querySelectorAll(sel)];
-
-  function getApiUrl(path) {
-    const base = window.APP_CONFIG?.API_BASE_URL || '';
-    return `${base}${base.endsWith('/') ? '' : '/'}${path}`;
-  }
+  const db = window.SupabaseClient;
 
   function formatCurrency(amount) {
     if (!amount) return 'Consultar';
@@ -335,6 +332,11 @@
     t.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><div class="toast-body"><div class="toast-title">${title}</div><div class="toast-message">${msg||''}</div></div>`;
     c.appendChild(t);
     setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(100%)'; t.style.transition='all .3s'; setTimeout(()=>t.remove(),300); }, 4000);
+  }
+
+  // ── Auth Check (for patent visibility) ──
+  function getSession() {
+    try { return JSON.parse(sessionStorage.getItem('bbruno_admin_session')); } catch { return null; }
   }
 
   // ── State ──
@@ -411,16 +413,12 @@
     const btn = e.target.querySelector('button[type=submit]');
     if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
     try {
-      await fetch(getApiUrl('tables/leads'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          vehicle_id: vehicle?.id,
-          client_name: name,
-          client_phone: phone,
-          message: message || `Me interesa el ${vehicle?.year} ${vehicle?.brand} ${vehicle?.model}`,
-          status: 'nuevo'
-        })
+      await db.insert('leads', {
+        vehicle_patent: vehicle?.patent,
+        name: name,
+        phone: phone,
+        message: message || `Me interesa el ${vehicle?.year} ${vehicle?.brand} ${vehicle?.model}`,
+        status: 'nuevo'
       });
       showToast('¡Consulta enviada!', 'Te contactaremos a la brevedad. También podés escribirnos por WhatsApp.', 'success');
       e.target.reset();
@@ -428,7 +426,8 @@
       // También abrir WhatsApp
       const waMsg = `Hola BBruno, soy ${name} y me interesa el ${vehicle?.year} ${vehicle?.brand} ${vehicle?.model}. ${message || '¿Sigue disponible?'}`;
       setTimeout(() => window.open(`https://wa.me/541123150051?text=${encodeURIComponent(waMsg)}`, '_blank'), 1000);
-    } catch {
+    } catch (err) {
+      console.error('[Detail] Error submitting lead:', err);
       showToast('Error al enviar', 'Por favor contactanos directamente por WhatsApp.', 'error');
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar consulta'; }
@@ -446,9 +445,8 @@
     }
 
     try {
-      const res = await fetch(getApiUrl(`tables/vehicles/${id}`));
-      if (!res.ok) throw new Error('not found');
-      vehicle = await res.json();
+      vehicle = await db.selectById('vehicles', id);
+      if (!vehicle) throw new Error('not found');
 
       document.title = `${vehicle.year} ${vehicle.brand} ${vehicle.model} | BBruno Automotores`;
 
@@ -458,12 +456,16 @@
 
       renderDetail();
       hideLoader();
-    } catch {
+    } catch (err) {
+      console.error('[Detail] Error loading vehicle:', err);
       showError();
     }
   }
 
   function renderDetail() {
+    const session = getSession();
+    const canSeePatent = session && ['administrador', 'editor', 'visualizador'].includes(session.role);
+
     // Gallery
     const mainImg = $('#galleryMainImg');
     if (mainImg) { mainImg.src = photos[0]; mainImg.alt = `${vehicle.year} ${vehicle.brand} ${vehicle.model}`; }
@@ -479,11 +481,14 @@
 
     // Breadcrumb
     const bc = $('#breadcrumbTitle');
-    if (bc) bc.textContent = `${vehicle.year} ${vehicle.brand} ${vehicle.model}`;
+    if (bc) bc.textContent = `${vehicle.year} ${vehicle.brand} ${vehicle.model}${canSeePatent && vehicle.patent ? ` [${vehicle.patent}]` : ''}`;
 
     // Info
     const brand = $('#detailBrand'); if(brand) brand.textContent = vehicle.brand || '';
-    const title = $('#detailTitle'); if(title) title.textContent = `${vehicle.year || ''} ${vehicle.model || ''}`;
+    const title = $('#detailTitle'); 
+    if(title) {
+        title.innerHTML = `${vehicle.year || ''} ${vehicle.model || ''}${canSeePatent && vehicle.patent ? ` <small style="font-family:monospace; opacity:0.6; font-size:0.6em; vertical-align:middle; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">${vehicle.patent}</small>` : ''}`;
+    }
     const version = $('#detailVersion'); if(version) version.textContent = vehicle.version || '';
     const price = $('#detailPrice'); if(price) price.textContent = formatCurrency(vehicle.price);
 

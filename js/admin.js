@@ -1,6 +1,7 @@
 /**
  * BBruno Automotores - Admin Panel JavaScript
  * ============================================
+ * v3 — Supabase Backend Integration
  */
 
 'use strict';
@@ -34,7 +35,7 @@ function getMaintTypeLabel(t) {
 
 function showToast(title, msg = '', type = 'default') {
   const c = $('#toastContainer'); if (!c) return;
-  const icons = { success: '✅', error: '❌', warning: '⚠️', default: 'ℹ️' };
+  const icons = { success: '✅', error: '❌', warning: '⚠️', default: 'ℹ️', info: 'ℹ️', danger: '❌' };
   const t = document.createElement('div');
   t.className = `toast toast-${type}`;
   t.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><div class="toast-body"><div class="toast-title">${title}</div>${msg?`<div class="toast-message">${msg}</div>`:''}</div>`;
@@ -64,19 +65,21 @@ function clearSession() {
 }
 
 async function doLogin(username, password) {
-  // Primero intentar con la API
+  // Intentar con Supabase
   try {
-    const res = await fetch(`tables/admin_users?search=${encodeURIComponent(username)}&limit=10`);
-    if (res.ok) {
-      const data = await res.json();
-      const user = (data.data || []).find(u => u.username === username && u.password_hash === password && u.is_active !== false);
-      if (user) {
-        const sess = { id: user.id, username: user.username, full_name: user.full_name, role: user.role };
-        setSession(sess);
-        return sess;
-      }
+    const users = await SupabaseClient.select('admin_users', {
+      filter: `username=eq.${username}`,
+      limit: 10,
+    });
+    const user = users.find(u => u.username === username && u.password_hash === password && u.is_active !== false);
+    if (user) {
+      const sess = { id: user.id, username: user.username, full_name: user.full_name, role: user.role };
+      setSession(sess);
+      return sess;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[Auth] Supabase login failed, using demo fallback:', err.message);
+  }
   // Fallback a usuarios demo
   const demo = DEMO_USERS.find(u => u.username === username && u.password === password);
   if (demo) {
@@ -101,32 +104,24 @@ let pendingDeleteTable = '';
 let pendingDeleteCallback = null;
 let currentPanel = 'dashboard';
 
-// ── API ──
-function getApiUrl(path) {
-  const base = window.APP_CONFIG?.API_BASE_URL || '';
-  return `${base}${base.endsWith('/') ? '' : '/'}${path}`;
-}
+// ── API (Supabase) ──
+const db = window.SupabaseClient;
 
-async function apiGet(table, params = '') {
-  const res = await fetch(getApiUrl(`tables/${table}?limit=200${params}`));
-  if (!res.ok) throw new Error(`Error ${res.status}`);
-  return (await res.json()).data || [];
+async function apiGet(table, opts = {}) {
+  return db.select(table, { order: 'created_at.desc', ...opts });
 }
 
 async function apiCreate(table, data) {
-  // Check permission before sending (frontend gate)
   if (currentUser?.role === window.APP_CONFIG?.ROLES.VIEWER) {
     showToast('Permiso denegado', 'Tu rol de visualizador no permite crear registros.', 'warning');
     throw new Error('Unauthorized');
   }
+  return db.insert(table, data);
+}
 
-  const res = await fetch(getApiUrl(`tables/${table}`), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) throw new Error(`Error ${res.status}`);
-  return res.json();
+// Alias for Excel import compatibility
+async function apiPost(table, data) {
+  return apiCreate(table, data);
 }
 
 async function apiUpdate(table, id, data) {
@@ -134,14 +129,7 @@ async function apiUpdate(table, id, data) {
     showToast('Permiso denegado', 'Tu rol de visualizador no permite modificar registros.', 'warning');
     throw new Error('Unauthorized');
   }
-
-  const res = await fetch(getApiUrl(`tables/${table}/${id}`), {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  if (!res.ok) throw new Error(`Error ${res.status}`);
-  return res.json();
+  return db.update(table, id, data);
 }
 
 async function apiDelete(table, id) {
@@ -149,9 +137,7 @@ async function apiDelete(table, id) {
     showToast('Permiso denegado', 'Solo los administradores pueden eliminar registros.', 'warning');
     throw new Error('Unauthorized');
   }
-
-  const res = await fetch(getApiUrl(`tables/${table}/${id}`), { method: 'DELETE' });
-  if (!res.ok && res.status !== 204) throw new Error(`Error ${res.status}`);
+  return db.remove(table, id);
 }
 
 // ── Modal Management ──
@@ -195,28 +181,33 @@ function initTagsInput(containerId, inputId, arrayRef) {
     input.value = '';
   }
 
-  container.addEventListener('focus', () => container.classList.add('focused'), true);
-  container.addEventListener('blur', () => container.classList.remove('focused'), true);
-
   input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); addTag(input.value); }
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTag(input.value);
+    }
     if (e.key === 'Backspace' && !input.value && arrayRef.length) {
-      arrayRef.pop(); renderTags();
+      arrayRef.pop();
+      renderTags();
     }
   });
 
   container.addEventListener('click', e => {
-    const btn = e.target.closest('.tag-remove');
-    if (btn) { arrayRef.splice(parseInt(btn.dataset.idx), 1); renderTags(); }
-    else input.focus();
+    if (e.target.classList.contains('tag-remove')) {
+      const idx = parseInt(e.target.dataset.idx);
+      arrayRef.splice(idx, 1);
+      renderTags();
+    }
+    input.focus();
   });
 
-  return { render: renderTags, addTag };
+  renderTags();
+  return { render: renderTags };
 }
 
-// ── Photo Preview ──
+// ── Photo Management ──
 function renderPhotoPreviews() {
-  const grid = $('#photoPreviews');
+  const grid = $('#photoPreviewGrid');
   if (!grid) return;
   const count = vehiclePhotos.length;
   grid.innerHTML = vehiclePhotos.map((url, i) => `
@@ -326,7 +317,7 @@ function renderDashboard() {
   // Recent vehicles
   const rv = $('#dashboardRecentVehicles');
   if (rv) {
-    const recent = allVehicles.slice(-5).reverse();
+    const recent = allVehicles.slice(0, 5);
     if (!recent.length) { rv.innerHTML = '<div class="table-empty"><i class="fas fa-car" aria-hidden="true"></i><br>Sin vehículos aún</div>'; }
     else {
       rv.innerHTML = recent.map(v => {
@@ -348,22 +339,22 @@ function renderDashboard() {
   // Recent leads
   const rl = $('#dashboardRecentLeads');
   if (rl) {
-    const recent = allLeads.slice(-6).reverse();
+    const recent = allLeads.slice(0, 6);
     if (!recent.length) { rl.innerHTML = '<div class="table-empty"><i class="fas fa-users" aria-hidden="true"></i><br>Sin consultas aún</div>'; }
     else {
       rl.innerHTML = recent.map(l => {
         const st = getLeadStatusLabel(l.status || 'nuevo');
-        const veh = allVehicles.find(v => v.id === l.vehicle_id);
+        const veh = allVehicles.find(v => v.patent === l.vehicle_patent);
         return `
           <div class="lead-card" style="margin:.25rem .75rem">
             <div class="lead-card-header">
               <div>
-                <div class="lead-name">${l.client_name || '—'}</div>
-                <div class="lead-contact">${l.client_phone || ''}</div>
+                <div class="lead-name">${l.name || '—'}</div>
+                <div class="lead-contact">${l.phone || ''}</div>
               </div>
               <span class="badge ${st.c}">${st.l}</span>
             </div>
-            ${veh ? `<div style="font-size:.78rem;color:var(--color-yellow);margin-top:.3rem"><i class="fas fa-car" aria-hidden="true"></i> ${veh.year} ${veh.brand} ${veh.model}${veh.patent ? ' [' + veh.patent + ']' : ''}</div>` : ''}
+            ${veh ? `<div style="font-size:.78rem;color:var(--color-yellow);margin-top:.3rem"><i class="fas fa-car" aria-hidden="true"></i> ${veh.year} ${veh.brand} ${veh.model} [${veh.patent}]</div>` : ''}
           </div>`;
       }).join('');
     }
@@ -453,12 +444,12 @@ function openVehicleModal(id = null) {
       $('#vfStatus').value = v.status || 'disponible';
       $('#vfFuel').value = v.fuel_type || 'nafta';
       $('#vfTransmission').value = v.transmission || 'manual';
-      $('#vfCondition').value = v.condition || 'usado_bueno';
+      if ($('#vfCondition')) $('#vfCondition').value = v.condition || 'usado_bueno';
       $('#vfFeatured').checked = !!v.is_featured;
       $('#vfVin').value = v.vin || '';
       $('#vfPatent').value = v.patent || '';
       $('#vfDesc').value = v.description || '';
-      $('#vfNotes').value = v.internal_notes || '';
+      if ($('#vfNotes')) $('#vfNotes').value = v.internal_notes || '';
 
       // Photos
       vehiclePhotos = Array.isArray(v.photos) ? [...v.photos] : [];
@@ -488,31 +479,33 @@ async function saveVehicle() {
   const year = parseInt($('#vfYear')?.value);
   const price = parseFloat($('#vfPrice')?.value);
   const mileage = parseFloat($('#vfMileage')?.value);
+  const patent = $('#vfPatent')?.value.trim();
 
-  if (!brand || !model || !year || !mileage) {
-    showToast('Campos requeridos', 'Por favor completá Marca, Modelo, Año y Kilometraje.', 'warning');
+  if (!brand || !model || !year) {
+    showToast('Campos requeridos', 'Por favor completá Marca, Modelo y Año.', 'warning');
+    return;
+  }
+
+  if (!patent) {
+    showToast('Patente requerida', 'La patente es obligatoria y debe ser única por vehículo.', 'warning');
     return;
   }
 
   const data = {
-    brand, model, year,
+    brand, model, year, patent,
     version: $('#vfVersion')?.value.trim() || '',
     color: $('#vfColor')?.value.trim() || '',
-    mileage, price: price || 0,
+    mileage: mileage || 0, price: price || 0,
     status: $('#vfStatus')?.value || 'disponible',
     fuel_type: $('#vfFuel')?.value || 'nafta',
     transmission: $('#vfTransmission')?.value || 'manual',
-    condition: $('#vfCondition')?.value || 'usado_bueno',
-    doors: parseInt($('#vfDoors')?.value) || null,
+    doors: parseInt($('#vfDoors')?.value) || 4,
     engine: $('#vfEngine')?.value.trim() || '',
     vin: $('#vfVin')?.value.trim() || '',
-    patent: $('#vfPatent')?.value.trim() || '',
     description: $('#vfDesc')?.value.trim() || '',
-    internal_notes: $('#vfNotes')?.value.trim() || '',
     is_featured: $('#vfFeatured')?.checked || false,
     photos: vehiclePhotos,
     features: vehicleFeatures,
-    documents: vehicleDocs,
     branch_id: 'branch-1',
   };
 
@@ -542,7 +535,6 @@ async function loadVehicles() {
   try {
     allVehicles = await apiGet('vehicles');
     if (currentPanel === 'vehicles') renderVehiclesTable(allVehicles);
-    // Update vehicle select in maint form
     populateVehicleSelect();
   } catch (err) {
     console.error('[Admin] Error cargando vehículos:', err);
@@ -565,7 +557,7 @@ function populateVehicleSelect() {
   if (!sel) return;
   const current = sel.value;
   sel.innerHTML = '<option value="">— Seleccionar vehículo —</option>' +
-    allVehicles.map(v => `<option value="${v.id}">${v.year} ${v.brand} ${v.model} ${v.patent ? ' [' + v.patent + ']' : '(Sin patente)'}</option>`).join('');
+    allVehicles.map(v => `<option value="${v.patent}">${v.year} ${v.brand} ${v.model} [${v.patent}]</option>`).join('');
   if (current) sel.value = current;
 }
 
@@ -577,8 +569,8 @@ function renderMaintenanceList(records) {
   const search = ($('#maintSearch')?.value || '').toLowerCase();
   const filtered = records.filter(r => {
     if (!search) return true;
-    const v = allVehicles.find(x => x.id === r.vehicle_id);
-    const vName = v ? `${v.year} ${v.brand} ${v.model}${v.patent ? ' ' + v.patent : ''}` : '';
+    const v = allVehicles.find(x => x.patent === r.vehicle_patent);
+    const vName = v ? `${v.year} ${v.brand} ${v.model} ${v.patent}` : r.vehicle_patent || '';
     return vName.toLowerCase().includes(search) || (r.description||'').toLowerCase().includes(search) || (r.type||'').toLowerCase().includes(search);
   });
 
@@ -587,23 +579,23 @@ function renderMaintenanceList(records) {
     return;
   }
 
-  // Group by vehicle
+  // Group by vehicle patent
   const byVehicle = {};
   filtered.forEach(r => {
-    const vid = r.vehicle_id || 'sin_vehiculo';
-    if (!byVehicle[vid]) byVehicle[vid] = [];
-    byVehicle[vid].push(r);
+    const vp = r.vehicle_patent || 'sin_patente';
+    if (!byVehicle[vp]) byVehicle[vp] = [];
+    byVehicle[vp].push(r);
   });
 
-  list.innerHTML = Object.entries(byVehicle).map(([vid, recs]) => {
-    const v = allVehicles.find(x => x.id === vid);
+  list.innerHTML = Object.entries(byVehicle).map(([vp, recs]) => {
+    const v = allVehicles.find(x => x.patent === vp);
     const vName = v ? `${v.year} ${v.brand} ${v.model}` : 'Vehículo desconocido';
     const sorted = [...recs].sort((a,b) => new Date(b.date||0) - new Date(a.date||0));
     return `
       <div style="margin-bottom:1.5rem">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid rgba(245,216,10,0.15)">
           <h4 style="font-size:.95rem;font-weight:700;color:var(--color-yellow)">
-            <i class="fas fa-car" aria-hidden="true"></i> ${vName} ${v && v.patent ? `<span style="font-family:monospace;background:rgba(255,255,255,0.1);padding:0 .4rem;border-radius:3px;margin-left:.5rem;color:var(--color-gray-light)">${v.patent}</span>` : ''}
+            <i class="fas fa-car" aria-hidden="true"></i> ${vName} <span style="font-family:monospace;background:rgba(255,255,255,0.1);padding:0 .4rem;border-radius:3px;margin-left:.5rem;color:var(--color-gray-light)">${vp}</span>
           </h4>
           <span style="font-size:.75rem;color:var(--color-gray)">${recs.length} registro${recs.length!==1?'s':''}</span>
         </div>
@@ -627,10 +619,6 @@ function renderMaintenanceList(records) {
             <p style="font-size:.85rem;color:var(--color-gray-light);margin-top:.4rem">${r.description || '—'}</p>
             ${r.performed_by ? `<div style="font-size:.78rem;color:var(--color-gray);margin-top:.35rem"><i class="fas fa-user-gear" aria-hidden="true"></i> ${r.performed_by}${r.technician ? ' · ' + r.technician : ''}</div>` : ''}
             ${r.cost ? `<div style="font-size:.78rem;color:var(--color-yellow);margin-top:.25rem"><i class="fas fa-dollar-sign" aria-hidden="true"></i> ${formatCurrency(r.cost)}</div>` : ''}
-            ${Array.isArray(r.parts_replaced) && r.parts_replaced.length ? `
-              <div style="margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.3rem">
-                ${r.parts_replaced.map(p=>`<span style="font-size:.72rem;padding:.15rem .5rem;background:rgba(255,255,255,0.06);border-radius:4px;color:var(--color-gray-light)">${p}</span>`).join('')}
-              </div>` : ''}
           </div>
         `).join('')}
       </div>
@@ -650,7 +638,6 @@ function openMaintenanceModal(id = null) {
   if (title) title.textContent = id ? 'Editar registro' : 'Nuevo registro de mantenimiento';
 
   if (!id) {
-    // Default today
     const today = new Date().toISOString().split('T')[0];
     if ($('#mfDate')) $('#mfDate').value = today;
   }
@@ -659,7 +646,7 @@ function openMaintenanceModal(id = null) {
     const r = allMaintenance.find(x => x.id === id);
     if (r) {
       $('#mfId').value = r.id;
-      $('#mfVehicle').value = r.vehicle_id || '';
+      $('#mfVehicle').value = r.vehicle_patent || '';
       $('#mfType').value = r.type || 'service';
       $('#mfDate').value = r.date ? r.date.split('T')[0] : '';
       $('#mfMileage').value = r.mileage_at_service || '';
@@ -667,12 +654,8 @@ function openMaintenanceModal(id = null) {
       $('#mfPerformedBy').value = r.performed_by || '';
       $('#mfTechnician').value = r.technician || '';
       $('#mfDescription').value = r.description || '';
-      $('#mfNextMileage').value = r.next_service_mileage || '';
-      $('#mfNextDate').value = r.next_service_date ? r.next_service_date.split('T')[0] : '';
-      if (Array.isArray(r.parts_replaced)) {
-        r.parts_replaced.forEach(p => maintParts.push(p));
-        maintPartsCtrl?.render();
-      }
+      if ($('#mfNextMileage')) $('#mfNextMileage').value = r.next_service_mileage || '';
+      if ($('#mfNextDate')) $('#mfNextDate').value = r.next_service_date ? r.next_service_date.split('T')[0] : '';
     }
   }
 
@@ -681,28 +664,24 @@ function openMaintenanceModal(id = null) {
 
 async function saveMaintenance() {
   const id = $('#mfId')?.value;
-  const vehicleId = $('#mfVehicle')?.value;
+  const vehiclePatent = $('#mfVehicle')?.value;
   const description = $('#mfDescription')?.value.trim();
   const date = $('#mfDate')?.value;
 
-  if (!vehicleId || !description || !date) {
+  if (!vehiclePatent || !description || !date) {
     showToast('Campos requeridos', 'Seleccioná vehículo, fecha y descripción.', 'warning');
     return;
   }
 
   const data = {
-    vehicle_id: vehicleId,
+    vehicle_patent: vehiclePatent,
     type: $('#mfType')?.value || 'service',
     date,
     description,
-    mileage_at_service: parseFloat($('#mfMileage')?.value) || null,
-    cost: parseFloat($('#mfCost')?.value) || null,
+    mileage_at_service: parseFloat($('#mfMileage')?.value) || 0,
+    cost: parseFloat($('#mfCost')?.value) || 0,
     performed_by: $('#mfPerformedBy')?.value.trim() || '',
     technician: $('#mfTechnician')?.value.trim() || '',
-    next_service_mileage: parseFloat($('#mfNextMileage')?.value) || null,
-    next_service_date: $('#mfNextDate')?.value || null,
-    parts_replaced: maintParts,
-    attachments: [],
   };
 
   const btn = $('#btnSaveMaintenance');
@@ -740,21 +719,21 @@ function renderLeadsList(leads) {
     return;
   }
 
-  const sorted = [...filtered].sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+  const sorted = [...filtered].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
   list.innerHTML = sorted.map(l => {
     const st = getLeadStatusLabel(l.status || 'nuevo');
-    const veh = allVehicles.find(v => v.id === l.vehicle_id);
-    const vText = veh ? `${veh.year} ${veh.brand} ${veh.model}${veh.patent ? ' [' + veh.patent + ']' : ''}` : '';
-    const waMsg = `Hola ${l.client_name || 'cliente'}, te contactamos de BBruno Automotores. ${veh ? `Te escribimos por el ${vText}.` : ''} ¿Seguís interesado?`;
+    const veh = allVehicles.find(v => v.patent === l.vehicle_patent);
+    const vText = veh ? `${veh.year} ${veh.brand} ${veh.model} [${veh.patent}]` : '';
+    const waMsg = `Hola ${l.name || 'cliente'}, te contactamos de BBruno Automotores. ${veh ? `Te escribimos por el ${vText}.` : ''} ¿Seguís interesado?`;
     return `
       <div class="lead-card">
         <div class="lead-card-header">
           <div style="flex:1;min-width:0">
-            <div class="lead-name">${l.client_name || '—'}</div>
+            <div class="lead-name">${l.name || '—'}</div>
             <div class="lead-contact">
-              ${l.client_phone ? `<i class="fas fa-phone" style="font-size:.75rem" aria-hidden="true"></i> ${l.client_phone}` : ''}
-              ${l.client_email ? ` · ${l.client_email}` : ''}
+              ${l.phone ? `<i class="fas fa-phone" style="font-size:.75rem" aria-hidden="true"></i> ${l.phone}` : ''}
+              ${l.email ? ` · ${l.email}` : ''}
             </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0">
@@ -765,15 +744,15 @@ function renderLeadsList(leads) {
             </select>
           </div>
         </div>
-        ${veh ? `<div style="font-size:.8rem;color:var(--color-yellow);margin-top:.4rem"><i class="fas fa-car" aria-hidden="true"></i> <a href="vehicle-detail.html?id=${veh.id}" target="_blank" style="color:var(--color-yellow)">${veh.year} ${veh.brand} ${veh.model}${veh.patent ? ' [' + veh.patent + ']' : ''}</a></div>` : ''}
+        ${veh ? `<div style="font-size:.8rem;color:var(--color-yellow);margin-top:.4rem"><i class="fas fa-car" aria-hidden="true"></i> <a href="vehicle-detail.html?id=${veh.id}" target="_blank" style="color:var(--color-yellow)">${vText}</a></div>` : ''}
         ${l.message ? `<div class="lead-msg">"${l.message}"</div>` : ''}
         <div style="display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap">
-          ${l.client_phone ? `
-            <a href="https://wa.me/${l.client_phone.replace(/\D/g,'')}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366;font-size:.75rem">
+          ${l.phone ? `
+            <a href="https://wa.me/${l.phone.replace(/\D/g,'')}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366;font-size:.75rem">
               <i class="fab fa-whatsapp" aria-hidden="true"></i> WhatsApp
             </a>` : ''}
-          ${l.client_phone ? `<a href="tel:${l.client_phone}" class="btn btn-ghost btn-sm" style="font-size:.75rem"><i class="fas fa-phone" aria-hidden="true"></i> Llamar</a>` : ''}
-          <button class="btn btn-danger btn-sm" onclick="confirmDelete('leads','${l.id}','¿Eliminar esta consulta de ${l.client_name}?',loadLeads)" style="font-size:.75rem" aria-label="Eliminar consulta">
+          ${l.phone ? `<a href="tel:${l.phone}" class="btn btn-ghost btn-sm" style="font-size:.75rem"><i class="fas fa-phone" aria-hidden="true"></i> Llamar</a>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete('leads','${l.id}','¿Eliminar esta consulta de ${l.name}?',loadLeads)" style="font-size:.75rem" aria-label="Eliminar consulta">
             <i class="fas fa-trash" aria-hidden="true"></i>
           </button>
         </div>
@@ -787,7 +766,6 @@ async function updateLeadStatus(id, status) {
     await apiUpdate('leads', id, { status });
     const lead = allLeads.find(l => l.id === id);
     if (lead) lead.status = status;
-    // Update badge count
     updateLeadsCount();
     showToast('Estado actualizado', '', 'success');
   } catch { showToast('Error al actualizar', '', 'error'); }
@@ -825,15 +803,11 @@ function renderBranchesList(branches) {
       <div style="flex:1;min-width:200px">
         <div style="font-weight:700;font-size:1rem;margin-bottom:.25rem">${b.name || '—'}</div>
         <div style="font-size:.82rem;color:var(--color-gray)">
-          <i class="fas fa-map-marker-alt" aria-hidden="true"></i> ${b.address || ''}, ${b.city || ''}, ${b.province || ''}
+          <i class="fas fa-map-marker-alt" aria-hidden="true"></i> ${b.address || ''}, ${b.city || ''}
         </div>
-        ${b.phone ? `<div style="font-size:.82rem;color:var(--color-gray);margin-top:.2rem"><i class="fas fa-phone" aria-hidden="true"></i> ${b.phone}</div>` : ''}
-        ${b.whatsapp ? `<div style="font-size:.82rem;color:var(--color-gray);margin-top:.2rem"><i class="fab fa-whatsapp" aria-hidden="true"></i> ${b.whatsapp}</div>` : ''}
-        ${b.schedule ? `<div style="font-size:.8rem;color:var(--color-gray);margin-top:.2rem"><i class="fas fa-clock" aria-hidden="true"></i> ${b.schedule}</div>` : ''}
       </div>
       <div style="display:flex;gap:.4rem;align-items:center">
         <span class="badge ${b.is_active ? 'badge-success' : 'badge-danger'}">${b.is_active ? 'Activa' : 'Inactiva'}</span>
-        ${b.google_maps_url ? `<a href="${b.google_maps_url}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm btn-icon" aria-label="Ver en Maps"><i class="fas fa-map" aria-hidden="true"></i></a>` : ''}
       </div>
     </div>
   `).join('');
@@ -888,13 +862,11 @@ function updateClock() {
 async function initAdmin(user) {
   currentUser = user;
 
-  // Show admin app
   const login = $('#loginScreen');
   const app = $('#adminApp');
   if (login) login.style.display = 'none';
   if (app) { app.style.display = 'block'; }
 
-  // Set user info
   const ua = $('#userAvatar'); if (ua) ua.textContent = (user.full_name||'A')[0].toUpperCase();
   const un = $('#userName'); if (un) un.textContent = user.full_name || user.username;
   const ur = $('#userRole'); if (ur) ur.textContent = user.role || '';
@@ -975,7 +947,7 @@ async function initAdmin(user) {
   updateClock();
   setInterval(updateClock, 30000);
 
-  // Load all data
+  // Load all data from Supabase
   await Promise.all([
     loadVehicles(),
     loadMaintenance(),
@@ -992,22 +964,15 @@ function renderRoleBasedUI() {
   const roles = window.APP_CONFIG?.ROLES;
 
   if (role === roles.VIEWER) {
-    // Hide all creation buttons
-    $$('#btnNewVehicle, #btnNewMaintenance, #btnNewBranch').forEach(b => b.style.display = 'none');
-    // Hide all save buttons in templates
+    $$('#btnNewVehicle, #btnNewMaintenance, #btnNewBranch').forEach(b => { if (b) b.style.display = 'none'; });
     $$('#btnSaveVehicle, #btnSaveMaintenance').forEach(b => {
-      b.disabled = true;
-      b.title = 'Tu rol no permite guardar cambios';
-      b.style.opacity = '0.5';
+      if (b) { b.disabled = true; b.title = 'Tu rol no permite guardar cambios'; b.style.opacity = '0.5'; }
     });
   }
 
   if (role !== roles.ADMIN) {
-    // Hide delete confirm buttons from modal
     const deleteBtn = $('#btnConfirmDelete');
     if (deleteBtn) deleteBtn.style.display = 'none';
-    
-    // Alert that some features are restricted
     if (role === roles.EDITOR) {
       console.log('[Admin] Rol editor: Acceso a edición habilitado, borrado restringido.');
     }
@@ -1021,7 +986,6 @@ async function initLogin() {
   const error = $('#loginError');
   const togglePass = $('#togglePass');
 
-  // Toggle password visibility
   togglePass?.addEventListener('click', () => {
     const input = $('#loginPass');
     const icon = togglePass.querySelector('i');
@@ -1059,7 +1023,6 @@ async function initLogin() {
     }
   });
 
-  // Enter key on username
   $('#loginUser')?.addEventListener('keydown', e => { if (e.key === 'Enter') $('#loginPass')?.focus(); });
 }
 
@@ -1126,17 +1089,16 @@ function exportVehiclesToExcel() {
     });
     showToast('Exportación exitosa', 'Se descargó el inventario completo.', 'success');
   } else {
-    // Si no hay datos, actúa como plantilla con una fila de ejemplo
     exportData = [
       {
-        'Marca': 'Ejemplo: Toyota', 'Modelo': 'Corolla', 'Año': 2024, 'Versión': 'SEG Hybrid', 'Color': 'Blanco',
+        'Marca': 'Toyota', 'Modelo': 'Corolla', 'Año': 2024, 'Versión': 'SEG Hybrid', 'Color': 'Blanco',
         'Kilometraje': 0, 'Precio': 35000000, 'Estado': 'disponible', 'Combustible': 'hibrido',
         'Transmisión': 'automatica', 'Puertas': 4, 'Motor': '1.8 HV', 'Patente': 'AF123JK', 'VIN': '',
         'Descripción': 'Excelente unidad...', 'Destacado': 'no',
         'Fotos': 'https://link-a-foto.jpg', 'Equipamiento': 'Techo, Cuero, GPS'
       }
     ];
-    showToast('Plantilla lista', 'Se descargó el formato para carga masiva (vacío).', 'info');
+    showToast('Plantilla lista', 'Como no hay autos, se descargó el formato de carga masiva.', 'info');
   }
 
   const ws = XLSX.utils.json_to_sheet(exportData, { header: Object.keys(EXCEL_MAPPING) });
@@ -1169,7 +1131,7 @@ function handleExcelImport(event) {
 
       for (const row of rows) {
         const vehicleData = {
-          branch_id: 'branch-1' // Default
+          branch_id: 'branch-1'
         };
         
         Object.entries(EXCEL_MAPPING).forEach(([header, key]) => {
@@ -1189,14 +1151,14 @@ function handleExcelImport(event) {
           }
         });
 
-        // Validation
-        if (!vehicleData.brand || !vehicleData.model) {
+        // Validation: patent is required
+        if (!vehicleData.brand || !vehicleData.model || !vehicleData.patent) {
           errorCount++;
           continue;
         }
 
         try {
-          await apiPost('vehicles', vehicleData);
+          await db.upsert('vehicles', vehicleData, 'patent');
           successCount++;
         } catch (err) {
           console.error('[Import] Error subiendo fila:', vehicleData, err);
@@ -1206,15 +1168,15 @@ function handleExcelImport(event) {
 
       await loadVehicles();
       if (successCount > 0) {
-        showToast('Importación finalizada', `Se cargaron ${successCount} vehículos correctamente. ${errorCount ? `Hubo ${errorCount} errores.` : ''}`, 'success');
+        showToast('Importación finalizada', `Se procesaron ${successCount} vehículos correctamente. ${errorCount ? `Hubo ${errorCount} errores.` : ''}`, 'success');
       } else {
-        showToast('Error', 'No se pudo cargar ningún vehículo. Revisá el formato.', 'danger');
+        showToast('Error', 'No se pudo cargar ningún vehículo. Revisá el formato y que la patente esté presente.', 'danger');
       }
     } catch (err) {
       console.error('[Import] Error leyendo archivo:', err);
       showToast('Error de archivo', 'No se pudo leer el Excel. Asegurate de que sea un archivo válido.', 'danger');
     } finally {
-      event.target.value = ''; // Reset input
+      event.target.value = '';
     }
   };
   reader.readAsArrayBuffer(file);
