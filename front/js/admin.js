@@ -207,7 +207,7 @@ function initTagsInput(containerId, inputId, arrayRef) {
 
 // ── Photo Management ──
 function renderPhotoPreviews() {
-  const grid = $('#photoPreviewGrid');
+  const grid = $('#photoPreviews');
   if (!grid) return;
   const count = vehiclePhotos.length;
   grid.innerHTML = vehiclePhotos.map((url, i) => `
@@ -236,6 +236,7 @@ window.addPhoto = function() {
   vehiclePhotos.push(url);
   renderPhotoPreviews();
   input.value = '';
+  showToast('Foto agregada', 'La imagen ha sido pre-cargada correctamente', 'info');
 };
 
 window.removePhoto = function(idx) {
@@ -491,6 +492,19 @@ async function saveVehicle() {
     return;
   }
 
+  // Flush any pending text in the tag inputs
+  const pendingFeature = $('#vfFeatureInput')?.value.trim();
+  if (pendingFeature && !vehicleFeatures.includes(pendingFeature)) {
+    vehicleFeatures.push(pendingFeature);
+    featureTagsCtrl?.render();
+  }
+
+  const pendingDoc = $('#vfDocInputField')?.value.trim();
+  if (pendingDoc && !vehicleDocs.includes(pendingDoc)) {
+    vehicleDocs.push(pendingDoc);
+    docTagsCtrl?.render();
+  }
+
   const data = {
     brand, model, year, patent,
     version: $('#vfVersion')?.value.trim() || '',
@@ -499,13 +513,16 @@ async function saveVehicle() {
     status: $('#vfStatus')?.value || 'disponible',
     fuel_type: $('#vfFuel')?.value || 'nafta',
     transmission: $('#vfTransmission')?.value || 'manual',
+    condition: $('#vfCondition')?.value || 'usado_bueno',
     doors: parseInt($('#vfDoors')?.value) || 4,
     engine: $('#vfEngine')?.value.trim() || '',
     vin: $('#vfVin')?.value.trim() || '',
     description: $('#vfDesc')?.value.trim() || '',
+    internal_notes: $('#vfNotes')?.value.trim() || '',
     is_featured: $('#vfFeatured')?.checked || false,
     photos: vehiclePhotos,
     features: vehicleFeatures,
+    documents: vehicleDocs,
     branch_id: 'branch-1',
   };
 
