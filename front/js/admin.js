@@ -8,7 +8,7 @@
 
 // ── Utils ──
 const $ = sel => document.querySelector(sel);
-const $$ = sel => [...document.querySelectorAll(sel)];
+const $$ = (sel, cur = document) => [...cur.querySelectorAll(sel)];
 
 function formatCurrency(n) {
   if (!n) return 'Sin precio';
@@ -167,7 +167,7 @@ function initTagsInput(containerId, inputId, arrayRef) {
     arrayRef.forEach((tag, i) => {
       const el = document.createElement('span');
       el.className = 'tag-item';
-      el.innerHTML = `${tag}<button class="tag-remove" data-idx="${i}" aria-label="Quitar ${tag}">×</button>`;
+      el.innerHTML = `${tag}<button class="tag-remove" type="button" data-idx="${i}" aria-label="Quitar ${tag}">×</button>`;
       container.insertBefore(el, input);
     });
   }
@@ -181,7 +181,7 @@ function initTagsInput(containerId, inputId, arrayRef) {
     input.value = '';
   }
 
-  input.addEventListener('keydown', e => {
+  input.onkeydown = e => {
     if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
       addTag(input.value);
@@ -190,16 +190,17 @@ function initTagsInput(containerId, inputId, arrayRef) {
       arrayRef.pop();
       renderTags();
     }
-  });
+  };
 
-  container.addEventListener('click', e => {
+  container.onclick = e => {
     if (e.target.classList.contains('tag-remove')) {
+      e.preventDefault();
       const idx = parseInt(e.target.dataset.idx);
       arrayRef.splice(idx, 1);
       renderTags();
     }
     input.focus();
-  });
+  };
 
   renderTags();
   return { render: renderTags };
