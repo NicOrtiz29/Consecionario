@@ -239,6 +239,29 @@ window.addPhoto = function() {
   showToast('Foto agregada', 'La imagen ha sido pre-cargada correctamente', 'info');
 };
 
+window.handleLocalPhoto = function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (vehiclePhotos.length >= 8) {
+    showToast('Límite alcanzado', 'Podés cargar hasta 8 fotos por vehículo.', 'warning');
+    return;
+  }
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    vehiclePhotos.push(e.target.result);
+    renderPhotoPreviews();
+    showToast('Foto agregada', 'Imagen cargada desde la PC.', 'success');
+  };
+  reader.onerror = function() {
+    showToast('Error', 'No se pudo leer la imagen de la PC.', 'error');
+  };
+  reader.readAsDataURL(file);
+  
+  // Limpiar el input para permitir subir la misma u otra de nuevo
+  event.target.value = '';
+};
+
 window.removePhoto = function(idx) {
   vehiclePhotos.splice(idx, 1);
   renderPhotoPreviews();

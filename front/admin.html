@@ -766,11 +766,15 @@
               <span id="photoCountLabel" style="color:var(--color-gray);font-weight:400">(0/8 fotos)</span>
             </div>
             <div class="form-group">
-              <label class="form-label" for="vfPhotoUrl">Agregar URL de foto</label>
+              <label class="form-label" for="vfPhotoUrl">Agregar foto (URL o PC)</label>
               <div style="display:flex;gap:.5rem">
-                <input type="url" id="vfPhotoUrl" class="form-control" placeholder="https://...">
-                <button type="button" class="btn btn-outline" id="btnAddPhoto">
+                <input type="url" id="vfPhotoUrl" class="form-control" placeholder="URL: https://...">
+                <button type="button" class="btn btn-outline" id="btnAddPhoto" onclick="addPhoto()" title="Agregar URL">
                   <i class="fas fa-plus" aria-hidden="true"></i>
+                </button>
+                <input type="file" id="vfPhotoFile" accept="image/*" style="display:none" onchange="handleLocalPhoto(event)">
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('vfPhotoFile').click()" title="Subir desde PC">
+                  <i class="fas fa-upload" aria-hidden="true"></i> PC
                 </button>
               </div>
             </div>
