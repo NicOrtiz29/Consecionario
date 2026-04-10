@@ -912,6 +912,54 @@
   </div>
 
   <!-- ============================================================
+       MODAL: Sucursal
+       ============================================================ -->
+  <div class="modal-backdrop" id="branchModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="branchModalTitle">
+    <div class="modal" style="max-width:500px">
+      <div class="modal-header">
+        <h3 class="modal-title" id="branchModalTitle">Nueva sucursal</h3>
+        <button class="modal-close" onclick="closeModal('branchModal')" aria-label="Cerrar">
+          <i class="fas fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="branchForm" novalidate onsubmit="event.preventDefault();">
+          <input type="hidden" id="bfId">
+          <div class="form-group">
+            <label class="form-label" for="bfName">Nombre *</label>
+            <input type="text" id="bfName" class="form-control" placeholder="Ej: Sucursal Central" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bfCity">Ciudad *</label>
+            <input type="text" id="bfCity" class="form-control" placeholder="Ej: Tristán Suárez" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bfAddress">Dirección</label>
+            <input type="text" id="bfAddress" class="form-control" placeholder="Ej: Calle 123">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bfGoogleMaps">Link de Google Maps</label>
+            <input type="url" id="bfGoogleMaps" class="form-control" placeholder="https://maps.app.goo.gl/...">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="bfActive">Estado</label>
+            <select id="bfActive" class="form-control">
+              <option value="true">Activa</option>
+              <option value="false">Inactiva</option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeModal('branchModal')">Cancelar</button>
+        <button class="btn btn-primary" id="btnSaveBranch">
+          <i class="fas fa-floppy-disk" aria-hidden="true"></i> Guardar sucursal
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
        MODAL: Confirmación de eliminación
        ============================================================ -->
   <div class="modal-backdrop" id="deleteModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">

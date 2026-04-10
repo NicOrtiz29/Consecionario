@@ -838,25 +838,111 @@ function renderBranchesList(branches) {
     list.innerHTML = '<div class="table-empty"><i class="fas fa-building"></i><br>No hay sucursales</div>';
     return;
   }
-  list.innerHTML = branches.map(b => `
+  list.innerHTML = branches.map(b => {
+    let rawAddr = b.address || '';
+    let mapsLink = '';
+    if (rawAddr.includes(' | ')) {
+      const parts = rawAddr.split(' | ');
+      rawAddr = parts[0];
+      mapsLink = parts[1];
+    }
+    return `
     <div style="background:var(--color-carbon-mid);border:1px solid rgba(255,255,255,0.07);border-radius:var(--border-radius);padding:1.25rem;margin-bottom:.75rem;display:flex;align-items:flex-start;gap:1rem;flex-wrap:wrap">
-      ${b.photo ? `<img src="${b.photo}" alt="${b.name}" style="width:100px;height:70px;object-fit:cover;border-radius:6px;flex-shrink:0" onerror="this.style.display='none'">` : ''}
       <div style="flex:1;min-width:200px">
         <div style="font-weight:700;font-size:1rem;margin-bottom:.25rem">${b.name || '—'}</div>
         <div style="font-size:.82rem;color:var(--color-gray)">
-          <i class="fas fa-map-marker-alt" aria-hidden="true"></i> ${b.address || ''}, ${b.city || ''}
+          <i class="fas fa-map-marker-alt" aria-hidden="true"></i> ${rawAddr}, ${b.city || ''}
+          ${mapsLink ? `<a href="${mapsLink}" target="_blank" style="color:var(--color-yellow);margin-left:6px;text-decoration:none;"><i class="fas fa-map" aria-hidden="true"></i> Cómo llegar</a>` : ''}
         </div>
       </div>
       <div style="display:flex;gap:.4rem;align-items:center">
         <span class="badge ${b.is_active ? 'badge-success' : 'badge-danger'}">${b.is_active ? 'Activa' : 'Inactiva'}</span>
+        <button class="btn btn-ghost btn-sm btn-icon" onclick="openBranchModal('${b.id}')" aria-label="Editar sucursal">
+          <i class="fas fa-pen" aria-hidden="true"></i>
+        </button>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('branches','${b.id}','¿Eliminar la sucursal ${b.name}?',loadBranches)" aria-label="Eliminar sucursal">
+          <i class="fas fa-trash" aria-hidden="true"></i>
+        </button>
       </div>
     </div>
-  `).join('');
+  `}).join('');
+}
+
+function openBranchModal(id = null) {
+  const form = $('#branchForm');
+  if (form) form.reset();
+  $('#bfId').value = '';
+
+  const title = $('#branchModalTitle');
+  if (title) title.textContent = id ? 'Editar sucursal' : 'Nueva sucursal';
+
+  if (id) {
+    const b = allBranches.find(x => x.id === id);
+    if (b) {
+      $('#bfId').value = b.id || '';
+      $('#bfName').value = b.name || '';
+      $('#bfCity').value = b.city || '';
+      let rawAddr = b.address || '';
+      let mapsLink = '';
+      if (rawAddr.includes(' | ')) {
+        const parts = rawAddr.split(' | ');
+        rawAddr = parts[0];
+        mapsLink = parts[1];
+      }
+      $('#bfAddress').value = rawAddr;
+      if ($('#bfGoogleMaps')) $('#bfGoogleMaps').value = mapsLink;
+      $('#bfActive').value = b.is_active ? 'true' : 'false';
+    }
+  }
+
+  openModal('branchModal');
+}
+
+async function saveBranch() {
+  const id = $('#bfId')?.value;
+  const name = $('#bfName')?.value.trim();
+  const city = $('#bfCity')?.value.trim();
+
+  if (!name || !city) {
+    showToast('Campos requeridos', 'Completá el nombre y la ciudad.', 'warning');
+    return;
+  }
+
+  const rawAddr = $('#bfAddress')?.value.trim() || '';
+  const rawMaps = $('#bfGoogleMaps')?.value.trim() || '';
+  const combinedAddress = rawMaps ? `${rawAddr} | ${rawMaps}` : rawAddr;
+
+  const data = {
+    id: id || ('branch-' + Date.now()),
+    name,
+    city,
+    address: combinedAddress,
+    is_active: $('#bfActive')?.value === 'true'
+  };
+
+  const btn = $('#btnSaveBranch');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; }
+
+  try {
+    if (id) {
+      await apiUpdate('branches', id, data);
+      showToast('¡Actualizada!', 'Sucursal actualizada correctamente.', 'success');
+    } else {
+      await apiCreate('branches', data);
+      showToast('¡Creada!', 'Nueva sucursal agregada.', 'success');
+    }
+    closeModal('branchModal');
+    await loadBranches();
+  } catch (err) {
+    showToast('Error', `No se pudo guardar: ${err.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-floppy-disk"></i> Guardar sucursal'; }
+  }
 }
 
 async function loadBranches() {
   try {
-    allBranches = await apiGet('branches');
+    allBranches = await apiGet('branches', { order: 'name.asc' });
     if (currentPanel === 'branches') renderBranchesList(allBranches);
   } catch (err) { console.error('[Admin] Error cargando sucursales:', err); }
 }
@@ -964,6 +1050,10 @@ async function initAdmin(user) {
 
   // Leads
   $('#leadStatusFilter')?.addEventListener('change', () => renderLeadsList(allLeads));
+
+  // Branches
+  $('#btnNewBranch')?.addEventListener('click', () => openBranchModal());
+  $('#btnSaveBranch')?.addEventListener('click', saveBranch);
 
   // Delete confirm
   $('#btnConfirmDelete')?.addEventListener('click', executeDelete);
@@ -1083,6 +1173,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // Expose globals needed by inline handlers
 window.openVehicleModal = openVehicleModal;
 window.openMaintenanceModal = openMaintenanceModal;
+window.openBranchModal = openBranchModal;
 window.confirmDelete = confirmDelete;
 window.updateLeadStatus = updateLeadStatus;
 window.switchPanel = switchPanel;
