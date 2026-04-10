@@ -1,5 +1,5 @@
 // BBruno Automotores - Service Worker (PWA)
-const CACHE_NAME = 'bbruno-automotores-v2';
+const CACHE_NAME = 'bbruno-automotores-v3';
 const STATIC_ASSETS = [
   '/index.html',
   '/admin.html',
@@ -7,7 +7,9 @@ const STATIC_ASSETS = [
   '/css/style.css',
   '/js/app.js',
   '/js/admin.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/icons/logo-192.jpeg',
+  '/icons/logo-512.jpeg'
 ];
 
 // Install event

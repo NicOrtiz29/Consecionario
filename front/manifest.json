@@ -1,27 +1,41 @@
 {
   "name": "BBruno Automotores",
-  "short_name": "BBruno Automotores",
+  "short_name": "BBruno",
   "description": "Concesionaria BBruno Automotores - Tristán Suárez, Ezeiza, Buenos Aires. Compra, Venta, Permuta y Financiación.",
+  "id": "/index.html",
   "start_url": "/index.html",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#050505",
   "theme_color": "#F5D80A",
   "orientation": "any",
   "icons": [
     {
-      "src": "https://bbrunoautomotores.com/wp-content/uploads/2022/01/cropped-WhatsApp-Image-2022-01-26-at-14.12.08-1.jpeg",
+      "src": "/icons/logo-192.jpeg",
       "sizes": "192x192",
       "type": "image/jpeg",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "https://bbrunoautomotores.com/wp-content/uploads/2022/01/cropped-WhatsApp-Image-2022-01-26-at-14.12.08-1.jpeg",
+      "src": "/icons/logo-512.jpeg",
       "sizes": "512x512",
       "type": "image/jpeg",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/logo-192.jpeg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/logo-512.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "maskable"
     }
   ],
   "categories": ["business", "automotive"],
   "lang": "es-AR",
-  "screenshots": []
+  "prefer_related_applications": false
 }
