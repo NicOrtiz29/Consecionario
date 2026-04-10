@@ -330,7 +330,7 @@
     <div class="container">
       <div class="section-header text-center">
         <p class="section-label"><span>Por qué elegirnos</span></p>
-        <h2 class="section-title">La diferencia <span class="text-yellow">BBruno</span></h2>
+        <h2 class="section-title">La diferencia <span class="text-yellow">BBruno Automotores</span></h2>
         <p class="section-subtitle">Más de una década acompañando a familias en la compra de su vehículo</p>
       </div>
       <div class="grid grid-4" id="whyGrid">
@@ -374,7 +374,7 @@
           <div class="contact-label">Ubicación</div>
           <div class="contact-value">Tristán Suárez</div>
           <div class="contact-sub">Ezeiza, Buenos Aires, Argentina</div>
-          <a href="https://maps.google.com/?q=Tristán+Suárez+Ezeiza+Buenos+Aires" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-top:1rem">
+          <a href="https://maps.app.goo.gl/VFjRoMBTE86QEoJY7" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-top:1rem">
             <i class="fas fa-map" aria-hidden="true"></i> Ver en Maps
           </a>
         </div>
@@ -398,25 +398,104 @@
         </div>
       </div>
 
-      <!-- Horario -->
-      <div style="margin-top:2rem; background:var(--color-carbon); border-radius:var(--border-radius-lg); padding:1.75rem; border:1px solid rgba(255,255,255,0.06)">
-        <h3 style="font-size:1rem;font-weight:700;margin-bottom:1rem;color:var(--color-yellow)">
-          <i class="fas fa-clock" aria-hidden="true"></i> Horario de atención
-        </h3>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem">
-          <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-            <span style="color:var(--color-gray)">Lunes a Viernes</span>
-            <strong>9:00 – 19:00</strong>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">
-            <span style="color:var(--color-gray)">Sábados</span>
-            <strong>9:00 – 14:00</strong>
-          </div>
-          <div style="display:flex;justify-content:space-between;padding:0.5rem 0">
-            <span style="color:var(--color-gray)">Domingos y feriados</span>
-            <span class="badge badge-warning">Solo WhatsApp</span>
+      <!-- Horario Mejorado -->
+      <div class="schedule-premium-card" style="margin-top:2.5rem; position: relative; overflow: hidden; background: linear-gradient(145deg, var(--color-carbon) 0%, #111 100%); border-radius: var(--border-radius-lg); padding: 2.5rem; border: 1px solid rgba(245,216,10,0.15); box-shadow: 0 10px 30px -10px rgba(0,0,0,0.7);">
+        <!-- Decorative background glow -->
+        <div style="position: absolute; top: -50px; left: 50%; transform: translateX(-50%); width: 250px; height: 100px; background: var(--color-yellow); filter: blur(80px); opacity: 0.1; border-radius: 50%; pointer-events: none;"></div>
+        
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 2rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 1.25rem;">
+          <h3 style="font-size:1.3rem; font-weight:800; color:var(--color-yellow); display:flex; align-items:center; gap: 0.75rem; margin: 0;">
+            <div style="width: 44px; height: 44px; background: rgba(245,216,10,0.1); border-radius: 12px; display:flex; align-items:center; justify-content:center; border: 1px solid rgba(245,216,10,0.2);">
+              <i class="fas fa-clock" aria-hidden="true" style="font-size: 1.2rem;"></i>
+            </div>
+            Horarios de atención
+          </h3>
+          <div id="storeStatusBadge" class="status-badge" style="background: rgba(46,204,113,0.1); color: var(--color-success); padding: 0.4rem 0.8rem; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; border: 1px solid rgba(46,204,113,0.2); display: flex; align-items: center; gap: 0.4rem;">
+            <span id="storeStatusDot" style="display:block; width:8px; height:8px; background:var(--color-success); border-radius: 50%; box-shadow: 0 0 8px var(--color-success); animation: pulseGreen 2s infinite;"></span>
+            <span id="storeStatusText">Calculando...</span>
           </div>
         </div>
+
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; position: relative; z-index: 2;">
+          <!-- Lunes a Viernes -->
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(245,216,10,0.2)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.borderColor='rgba(255,255,255,0.04)';">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="width: 3px; height: 44px; background: var(--color-yellow); border-radius: 4px; box-shadow: 0 0 10px rgba(245,216,10,0.5);"></div>
+              <div>
+                <span style="display:block; font-size: 0.72rem; color: var(--color-gray); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.3rem;">Días hábiles</span>
+                <strong style="font-size: 1.1rem; color: var(--color-white);">Lunes a Viernes</strong>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <strong style="display:block; font-size: 1.4rem; font-family: var(--font-display); color: var(--color-yellow); line-height: 1.1;">09:00 - 19:00</strong>
+              <span style="font-size: 0.75rem; color: var(--color-gray-light);">Horario corrido</span>
+            </div>
+          </div>
+          
+          <!-- Sábados -->
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; transition: all 0.3s ease;" onmouseover="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(245,216,10,0.2)';" onmouseout="this.style.background='rgba(255,255,255,0.02)'; this.style.borderColor='rgba(255,255,255,0.04)';">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="width: 3px; height: 44px; background: rgba(255,255,255,0.15); border-radius: 4px;"></div>
+              <div>
+                <span style="display:block; font-size: 0.72rem; color: var(--color-gray); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.3rem;">Fin de semana</span>
+                <strong style="font-size: 1.1rem; color: var(--color-white);">Sábados</strong>
+              </div>
+            </div>
+            <div style="text-align: right;">
+              <strong style="display:block; font-size: 1.4rem; font-family: var(--font-display); color: var(--color-yellow); line-height: 1.1;">09:00 - 14:00</strong>
+              <span style="font-size: 0.75rem; color: var(--color-gray-light);">Medio día</span>
+            </div>
+          </div>
+        </div>
+
+        <style>
+          @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.4); } 70% { box-shadow: 0 0 0 6px rgba(46,204,113,0); } 100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); } }
+          @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(231,76,60,0.4); } 70% { box-shadow: 0 0 0 6px rgba(231,76,60,0); } 100% { box-shadow: 0 0 0 0 rgba(231,76,60,0); } }
+        </style>
+        
+        <script>
+          (function() {
+            function updateStatus() {
+              const b = document.getElementById('storeStatusBadge');
+              const d = document.getElementById('storeStatusDot');
+              const t = document.getElementById('storeStatusText');
+              if (!b || !d || !t) return;
+              
+              // Local time in Argentina
+              const now = new Date(new Date().toLocaleString("en-US", {timeZone: "America/Argentina/Buenos_Aires"}));
+              const day = now.getDay();
+              const hour = now.getHours();
+              
+              let isOpen = false;
+              if (day >= 1 && day <= 5) { // Lunes a Viernes
+                if (hour >= 9 && hour < 19) isOpen = true;
+              } else if (day === 6) { // Sábado
+                if (hour >= 9 && hour < 14) isOpen = true;
+              }
+              // Domingo (0) siempre falso
+              
+              if (isOpen) {
+                b.style.background = 'rgba(46,204,113,0.1)';
+                b.style.color = '#2ecc71';
+                b.style.borderColor = 'rgba(46,204,113,0.2)';
+                d.style.background = '#2ecc71';
+                d.style.boxShadow = '0 0 8px #2ecc71';
+                d.style.animation = 'pulseGreen 2s infinite';
+                t.textContent = 'Abierto ahora';
+              } else {
+                b.style.background = 'rgba(231,76,60,0.1)';
+                b.style.color = '#e74c3c';
+                b.style.borderColor = 'rgba(231,76,60,0.2)';
+                d.style.background = '#e74c3c';
+                d.style.boxShadow = '0 0 8px #e74c3c';
+                d.style.animation = 'pulseRed 2s infinite';
+                t.textContent = 'Cerrado ahora';
+              }
+            }
+            updateStatus();
+            setInterval(updateStatus, 60000);
+          })();
+        </script>
       </div>
     </div>
   </section>
