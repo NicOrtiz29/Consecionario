@@ -1,4 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#F5D80A" rx="100"/>
-  <text x="50%" y="55%" font-family="Arial, sans-serif" font-weight="bold" font-size="300" fill="#050505" text-anchor="middle" dominant-baseline="middle">B</text>
+  <!-- Fondo Negro para que resalte -->
+  <rect width="512" height="512" rx="80" fill="#000000" />
+  
+  <!-- Bloque amarillo característico -->
+  <path d="M 80 60 L 340 60 C 450 60 470 290 340 290 L 80 290 Z" fill="#F8E019" />
+  
+  <!-- Letra B central -->
+  <text x="245" y="255" font-family="'Arial Black', sans-serif" font-weight="900" font-style="italic" font-size="280" fill="#000000" text-anchor="middle" transform="skewX(-2)">B</text>
+  
+  <!-- Texto BRUNO en plateado -->
+  <text x="256" y="385" font-family="'Arial Black', sans-serif" font-weight="900" font-size="80" fill="#D1D1D1" text-anchor="middle" letter-spacing="4">BRUNO</text>
+  
+  <!-- 3 líneas plateadas inferiores -->
+  <g fill="#D1D1D1">
+    <rect x="110" y="440" width="70" height="15" transform="skewX(-20)" />
+    <rect x="220" y="440" width="70" height="15" transform="skewX(-20)" />
+    <rect x="330" y="440" width="70" height="15" transform="skewX(-20)" />
+  </g>
 </svg>

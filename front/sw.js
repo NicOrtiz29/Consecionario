@@ -1,5 +1,5 @@
 // BBruno Automotores - Service Worker (PWA)
-const CACHE_NAME = 'bbruno-automotores-v4';
+const CACHE_NAME = 'bbruno-automotores-v6';
 const STATIC_ASSETS = [
   '/index.html',
   '/admin.html',

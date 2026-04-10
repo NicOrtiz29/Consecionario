@@ -1,7 +1,7 @@
 {
   "name": "BBruno Automotores",
-  "short_name": "BBruno",
-  "description": "Concesionaria BBruno - Tristán Suárez, Ezeiza.",
+  "short_name": "BBruno Automotores",
+  "description": "BBruno Automotores - Compra, Venta, Permuta y Financiación.",
   "id": "/index.html",
   "start_url": "/index.html",
   "scope": "/",
