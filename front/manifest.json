@@ -1,7 +1,7 @@
 {
   "name": "BBruno Automotores",
   "short_name": "BBruno",
-  "description": "Concesionaria BBruno Automotores - Tristán Suárez, Ezeiza, Buenos Aires. Compra, Venta, Permuta y Financiación.",
+  "description": "Concesionaria BBruno - Tristán Suárez, Ezeiza.",
   "id": "/index.html",
   "start_url": "/index.html",
   "scope": "/",
@@ -11,27 +11,27 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "/icons/logo-192.jpeg",
+      "src": "/icons/logo.svg",
       "sizes": "192x192",
-      "type": "image/jpeg",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/icons/logo-512.jpeg",
+      "src": "/icons/logo.svg",
       "sizes": "512x512",
-      "type": "image/jpeg",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/icons/logo-192.jpeg",
+      "src": "/icons/logo.svg",
       "sizes": "192x192",
-      "type": "image/jpeg",
+      "type": "image/svg+xml",
       "purpose": "maskable"
     },
     {
-      "src": "/icons/logo-512.jpeg",
+      "src": "/icons/logo.svg",
       "sizes": "512x512",
-      "type": "image/jpeg",
+      "type": "image/svg+xml",
       "purpose": "maskable"
     }
   ],
