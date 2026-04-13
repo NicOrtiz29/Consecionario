@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS vehicles (
   color TEXT DEFAULT '',
   mileage INTEGER DEFAULT 0,
   price NUMERIC DEFAULT 0,
+  down_payment NUMERIC DEFAULT 0,
   status TEXT DEFAULT 'disponible',
   fuel_type TEXT DEFAULT '',
   transmission TEXT DEFAULT '',

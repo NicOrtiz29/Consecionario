@@ -210,8 +210,9 @@ function renderVehicleCard(v) {
         </div>
         <div style="display:flex;align-items:flex-end;justify-content:space-between">
           <div>
-            <div class="vehicle-card-price-label">Precio</div>
+            <div class="vehicle-card-price-label">Precio Total</div>
             <div class="vehicle-card-price">${formatCurrency(v.price)}</div>
+            ${v.down_payment ? `<div style="font-size:0.75rem; color:var(--color-yellow); margin-top:2px; font-weight:600">Anticipo: ${formatCurrency(v.down_payment)}</div>` : ''}
           </div>
           ${isAvailable ? `
           <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();quickWhatsApp('${v.id}','${v.year} ${v.brand} ${v.model}')">

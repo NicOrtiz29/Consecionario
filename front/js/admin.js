@@ -411,7 +411,10 @@ function renderVehiclesTable(vehicles) {
         <td style="font-family:monospace;font-weight:700;letter-spacing:1px">${v.patent || '—'}</td>
         <td>${v.year || '—'}</td>
         <td>${v.mileage ? formatNumber(v.mileage) + ' km' : '—'}</td>
-        <td style="font-weight:700;color:var(--color-yellow)">${formatCurrency(v.price)}</td>
+        <td style="font-weight:700;color:var(--color-yellow)">
+          ${formatCurrency(v.price)}
+          ${v.down_payment ? `<div style="font-size:0.75rem;color:var(--color-gray-light);font-weight:400;margin-top:2px">Anticipo: ${formatCurrency(v.down_payment)}</div>` : ''}
+        </td>
         <td><span class="badge ${st.c}">${st.l}</span></td>
         <td>${fuel}</td>
         <td>
@@ -466,6 +469,7 @@ function openVehicleModal(id = null) {
       $('#vfDoors').value = v.doors || '';
       $('#vfEngine').value = v.engine || '';
       $('#vfPrice').value = v.price || '';
+      if ($('#vfDownPayment')) $('#vfDownPayment').value = v.down_payment || '';
       $('#vfStatus').value = v.status || 'disponible';
       $('#vfFuel').value = v.fuel_type || 'nafta';
       $('#vfTransmission').value = v.transmission || 'manual';
@@ -533,7 +537,9 @@ async function saveVehicle() {
     brand, model, year, patent,
     version: $('#vfVersion')?.value.trim() || '',
     color: $('#vfColor')?.value.trim() || '',
-    mileage: mileage || 0, price: price || 0,
+    mileage: mileage || 0, 
+    price: price || 0,
+    down_payment: parseFloat($('#vfDownPayment')?.value) || 0,
     status: $('#vfStatus')?.value || 'disponible',
     fuel_type: $('#vfFuel')?.value || 'nafta',
     transmission: $('#vfTransmission')?.value || 'manual',
@@ -1191,6 +1197,7 @@ const EXCEL_MAPPING = {
   'Color': 'color',
   'Kilometraje': 'mileage',
   'Precio': 'price',
+  'Anticipo': 'down_payment',
   'Estado': 'status',
   'Combustible': 'fuel_type',
   'Transmisión': 'transmission',

@@ -216,10 +216,13 @@
 
             <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap" id="statusBadges"></div>
 
-            <div class="detail-price-section">
-              <div class="detail-price-note" style="margin-bottom:0.25rem">Precio</div>
+              <div class="detail-price-note" style="margin-bottom:0.25rem">Precio Total</div>
               <div class="detail-price" id="detailPrice"></div>
-              <div class="detail-price-note" style="margin-top:0.25rem">Consultar financiación disponible</div>
+              <div id="detailDownPaymentContainer" style="display:none; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.06)">
+                <div class="detail-price-note" style="margin-bottom:0.25rem">Anticipo desde</div>
+                <div class="detail-price" id="detailDownPayment" style="font-size:1.5rem; color:var(--color-yellow)"></div>
+              </div>
+              <div class="detail-price-note" style="margin-top:0.5rem">Consultar financiación disponible</div>
             </div>
 
             <div class="detail-specs" id="detailSpecs"></div>
@@ -494,6 +497,18 @@
     }
     const version = $('#detailVersion'); if(version) version.textContent = vehicle.version || '';
     const price = $('#detailPrice'); if(price) price.textContent = formatCurrency(vehicle.price);
+    
+    // Anticipo
+    const dpContainer = $('#detailDownPaymentContainer');
+    const dpText = $('#detailDownPayment');
+    if (dpContainer && dpText) {
+      if (vehicle.down_payment && vehicle.down_payment > 0) {
+        dpContainer.style.display = 'block';
+        dpText.textContent = formatCurrency(vehicle.down_payment);
+      } else {
+        dpContainer.style.display = 'none';
+      }
+    }
 
     // Badges
     const badges = $('#statusBadges');
