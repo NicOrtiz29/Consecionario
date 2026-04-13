@@ -1205,38 +1205,57 @@ const EXCEL_MAPPING = {
 };
 
 function exportVehiclesToExcel() {
-  let exportData = [];
+  try {
+    if (typeof XLSX === 'undefined') {
+      showToast('Error', 'La librería para generar Excel no se cargó correctamente. Por favor recargá la página.', 'error');
+      console.error('[Excel] XLSX library not found');
+      return;
+    }
 
-  if (allVehicles.length > 0) {
-    exportData = allVehicles.map(v => {
-      const row = {};
-      Object.entries(EXCEL_MAPPING).forEach(([header, key]) => {
-        let val = v[key];
-        if (key === 'photos') val = Array.isArray(val) ? val.join(', ') : '';
-        if (key === 'features') val = Array.isArray(val) ? val.join(', ') : '';
-        if (key === 'is_featured') val = val ? 'si' : 'no';
-        row[header] = val || '';
+    let exportData = [];
+    let isTemplate = false;
+
+    if (allVehicles.length > 0) {
+      exportData = allVehicles.map(v => {
+        const row = {};
+        Object.entries(EXCEL_MAPPING).forEach(([header, key]) => {
+          let val = v[key];
+          if (key === 'photos') val = Array.isArray(val) ? val.join(', ') : '';
+          if (key === 'features') val = Array.isArray(val) ? val.join(', ') : '';
+          if (key === 'is_featured') val = val ? 'si' : 'no';
+          row[header] = val || '';
+        });
+        return row;
       });
-      return row;
-    });
-    showToast('Exportación exitosa', 'Se descargó el inventario completo.', 'success');
-  } else {
-    exportData = [
-      {
-        'Marca': 'Toyota', 'Modelo': 'Corolla', 'Año': 2024, 'Versión': 'SEG Hybrid', 'Color': 'Blanco',
-        'Kilometraje': 0, 'Precio': 35000000, 'Estado': 'disponible', 'Combustible': 'hibrido',
-        'Transmisión': 'automatica', 'Puertas': 4, 'Motor': '1.8 HV', 'Patente': 'AF123JK', 'VIN': '',
-        'Descripción': 'Excelente unidad...', 'Destacado': 'no',
-        'Fotos': 'https://link-a-foto.jpg', 'Equipamiento': 'Techo, Cuero, GPS'
-      }
-    ];
-    showToast('Plantilla lista', 'Como no hay autos, se descargó el formato de carga masiva.', 'info');
-  }
+    } else {
+      isTemplate = true;
+      exportData = [
+        {
+          'Marca': 'Toyota', 'Modelo': 'Corolla', 'Año': 2024, 'Versión': 'SEG Hybrid', 'Color': 'Blanco',
+          'Kilometraje': 0, 'Precio': 35000000, 'Estado': 'disponible', 'Combustible': 'hibrido',
+          'Transmisión': 'automatica', 'Puertas': 4, 'Motor': '1.8 HV', 'Patente': 'AF123JK', 'VIN': '',
+          'Descripción': 'Excelente unidad...', 'Destacado': 'no',
+          'Fotos': 'https://link-a-foto.jpg', 'Equipamiento': 'Techo, Cuero, GPS'
+        }
+      ];
+    }
 
-  const ws = XLSX.utils.json_to_sheet(exportData, { header: Object.keys(EXCEL_MAPPING) });
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Stock_BBruno");
-  XLSX.writeFile(wb, `Stock_BBruno_${new Date().toISOString().split('T')[0]}.xlsx`);
+    const ws = XLSX.utils.json_to_sheet(exportData, { header: Object.keys(EXCEL_MAPPING) });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Stock_BBruno");
+    
+    // Trigger download
+    XLSX.writeFile(wb, `Stock_BBruno_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    if (isTemplate) {
+      showToast('Plantilla lista', 'Como no hay autos, se bajó el formato de carga masiva.', 'info');
+    } else {
+      showToast('Exportación exitosa', 'Se descargó el inventario completo.', 'success');
+    }
+  } catch (err) {
+    console.error('[Excel] Error exportando:', err);
+    showToast('Error', 'No se pudo generar el archivo: ' + err.message, 'error');
+  }
 }
 
 function handleExcelImport(event) {
