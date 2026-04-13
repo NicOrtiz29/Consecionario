@@ -216,9 +216,12 @@ function renderPhotoPreviews() {
   const grid = $('#photoPreviews');
   if (!grid) return;
   const count = vehiclePhotos.length;
+  const FALLBACK = 'https://placehold.co/600x400/2B2B2B/888?text=Error+de+Carga';
+  
   grid.innerHTML = vehiclePhotos.map((url, i) => `
     <div class="photo-preview-item">
-      <img src="${url}" alt="Foto ${i+1}" onerror="this.src='https://via.placeholder.com/120x80/2B2B2B/888?text=Error'">
+      <img src="${url}" alt="Foto ${i+1}" 
+           onerror="console.error('Error cargando:', '${url}'); this.onerror=null; this.src='${FALLBACK}';">
       <button onclick="removePhoto(${i})" aria-label="Quitar foto ${i+1}" title="Quitar">✕</button>
     </div>
   `).join('') + (count < 8 ? `
@@ -233,16 +236,98 @@ function renderPhotoPreviews() {
 
 window.addPhoto = function() {
   const input = $('#vfPhotoUrl');
-  const url = input?.value.trim();
+  let url = input?.value.trim();
   if (!url) return;
+
   if (vehiclePhotos.length >= 8) {
     showToast('Límite alcanzado', 'Podés cargar hasta 8 fotos por vehículo.', 'warning');
     return;
   }
+
+  // Evitar duplicados
+  if (vehiclePhotos.includes(url)) {
+    showToast('Foto duplicada', 'Esta imagen ya fue agregada.', 'warning');
+    return;
+  }
+
+  // Soporte para Instagram con Proxy (Acepta cualquier formato de link)
+  const igRegex = /(instagram\.com|instagr\.am)\/(?:.*\/)?(p|reels|tv)\/([A-Za-z0-9_-]+)/i;
+  const match = url.match(igRegex);
+  
+  if (match) {
+    try {
+      const type = match[2]; 
+      const shortcode = match[3]; 
+      const igUrl = `https://www.instagram.com/${type}/${shortcode}/media/?size=l`;
+      
+      // Verificamos si ya existe el MISMO post (para evitar repetir la portada)
+      const isDuplicatePost = vehiclePhotos.some(p => p.includes(`/${shortcode}/`));
+      if (isDuplicatePost) {
+        showToast('Aviso: Mismo Post', 'Ya agregaste la portada de este post. Para las otras fotos, usá "Copiar dirección de imagen".', 'warning');
+        // No bloqueamos, por si el usuario realmente quiere repetirla, 
+        // pero avisamos por qué se ve igual.
+      }
+
+      url = `https://images.weserv.nl/?url=${encodeURIComponent(igUrl)}&default=https://placehold.co/800x600/2b2b2b/888?text=Instagram+No+Disponible`;
+      
+      console.log('[Admin] IG detectado y procesado:', { shortcode, url });
+      $('#igExtraButtons').style.display = 'block';
+    } catch (e) {
+      console.warn('Error procesando link de IG:', e);
+    }
+  } else {
+    $('#igExtraButtons').style.display = 'none';
+  }
+
   vehiclePhotos.push(url);
   renderPhotoPreviews();
   input.value = '';
   showToast('Foto agregada', 'La imagen ha sido pre-cargada correctamente', 'info');
+};
+
+window.extractIGImages = async function() {
+  const url = $('#vfPhotoUrl')?.value || (vehiclePhotos.find(p => p.includes('instagram.com')) || '');
+  const igRegex = /(instagram\.com|instagr\.am)\/(?:.*\/)?(p|reels|tv)\/([A-Za-z0-9_-]+)/i;
+  const match = url.match(igRegex);
+  
+  if (!match) {
+    showToast('Error', 'No hay un link de Instagram válido para extraer.', 'error');
+    return;
+  }
+
+  const shortcode = match[3];
+  showToast('Extrayendo...', 'Buscando fotos en Instagram...', 'info');
+
+  try {
+    const res = await fetch(`http://localhost:3005/api/ig-extract?shortcode=${shortcode}`);
+    const data = await res.json();
+
+    if (data.images && data.images.length > 0) {
+      // Limpiamos las repetidas
+      const newImages = data.images.filter(img => !vehiclePhotos.includes(img));
+      
+      if (newImages.length === 0) {
+        showToast('Info', 'Ya se importaron todas las fotos disponibles.', 'info');
+        return;
+      }
+
+      // Agregamos todas pasando por el Proxy para evitar el error 403
+      newImages.forEach(img => {
+        if (vehiclePhotos.length < 8) {
+          const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(img)}&default=https://placehold.co/800x600/2b2b2b/888?text=Error+IG`;
+          vehiclePhotos.push(proxiedUrl);
+        }
+      });
+      
+      renderPhotoPreviews();
+      showToast('¡Éxito!', `Se agregaron ${newImages.length} fotos encontradas.`, 'success');
+    } else {
+      showToast('Error', 'No se encontraron fotos adicionales.', 'warning');
+    }
+  } catch (err) {
+    console.error('Error extrayendo IG:', err);
+    showToast('Error', 'No se pudo contactar con el extractor.', 'error');
+  }
 };
 
 window.handleLocalPhoto = function(event) {

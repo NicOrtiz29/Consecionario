@@ -40,15 +40,18 @@ self.addEventListener('activate', event => {
 
 // Fetch event - Network first, fallback to cache
 self.addEventListener('fetch', event => {
-  // Ignorar requests a la API de tablas (siempre online)
-  if (event.request.url.includes('/tables/')) {
+  const url = new URL(event.request.url);
+
+  // 1. Ignorar APIs y recursos externos (Instagram, Google Fonts, etc.)
+  // Dejamos que el navegador los maneje directamente para evitar problemas de CORS/SW
+  if (url.pathname.includes('/tables/') || !url.origin.includes(self.location.hostname)) {
     return;
   }
   
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Cachear la respuesta si es válida
+        // Cachear solo recursos estáticos propios válidos
         if (response && response.status === 200 && response.type === 'basic') {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then(cache => {
@@ -59,13 +62,19 @@ self.addEventListener('fetch', event => {
       })
       .catch(() => {
         return caches.match(event.request).then(cachedResponse => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          // Fallback offline page
+          if (cachedResponse) return cachedResponse;
+          
+          // Si es una navegación fallida, mostrar la página principal
           if (event.request.mode === 'navigate') {
             return caches.match('/index.html');
           }
+          
+          // En última instancia, si no hay nada, devolvemos un error de red normal
+          // en lugar de dejar la promesa vacía.
+          return new Response('Network error', {
+            status: 408,
+            headers: { 'Content-Type': 'text/plain' }
+          });
         });
       })
   );

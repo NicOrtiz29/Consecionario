@@ -485,7 +485,7 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .gallery-thumb:hover, .gallery-thumb.active { border-color: var(--color-yellow); }
 .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-.detail-info { background: var(--color-gray-dark); border-radius: var(--border-radius-lg); padding: 2rem; }
+.detail-info { background: var(--color-gray-dark); border-radius: var(--border-radius-lg); padding: 2rem; margin-bottom: 1.5rem; }
 .detail-brand { font-size: 0.8rem; color: var(--color-yellow); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.25rem; }
 .detail-title { font-size: 2rem; font-weight: 900; font-family: var(--font-display); line-height: 1.1; }
 .detail-version { font-size: 1rem; color: var(--color-gray); margin-bottom: 1.5rem; }
