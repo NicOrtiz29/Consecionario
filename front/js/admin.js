@@ -1223,7 +1223,21 @@ function exportVehiclesToExcel() {
           if (key === 'photos') val = Array.isArray(val) ? val.join(', ') : '';
           if (key === 'features') val = Array.isArray(val) ? val.join(', ') : '';
           if (key === 'is_featured') val = val ? 'si' : 'no';
-          row[header] = val || '';
+          
+          let finalVal = String(val || '');
+          
+          // Excel limit is 32,767 characters per cell.
+          // We truncate to avoid the crash reported by users.
+          if (finalVal.length > 32760) {
+            console.warn(`[Excel] Truncando campo "${header}" para vehículo ${v.patent}. Largo: ${finalVal.length}`);
+            if (key === 'photos') {
+              // If photos are base64, they are likely the cause. Truncating them makes them invalid.
+              finalVal = finalVal.substring(0, 32760) + "... (CONTENIDO TRUNCADO POR LÍMITE DE EXCEL)";
+            } else {
+              finalVal = finalVal.substring(0, 32760) + "...";
+            }
+          }
+          row[header] = finalVal;
         });
         return row;
       });
