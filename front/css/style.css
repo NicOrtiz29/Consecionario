@@ -752,8 +752,13 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   .footer-grid { grid-template-columns: 1fr; }
   .detail-specs { grid-template-columns: 1fr; }
   .filter-grid { grid-template-columns: 1fr 1fr; }
-  .modal { max-width: 100%; margin: 0; border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0; align-self: flex-end; }
-  .modal-backdrop { align-items: flex-end; padding: 0; }
+  .modal { 
+    max-width: 100%; 
+    margin: 0; 
+    border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg); 
+    align-self: flex-start; 
+  }
+  .modal-backdrop { align-items: flex-start; padding: 0; }
 }
 
 @media (max-width: 480px) {

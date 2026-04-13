@@ -144,6 +144,11 @@ async function apiDelete(table, id) {
 function openModal(id) {
   const m = $(`#${id}`);
   if (!m) return;
+  
+  // Reiniciar scroll del contenido del modal
+  const modalContent = m.querySelector('.modal');
+  if (modalContent) modalContent.scrollTop = 0;
+
   m.style.display = 'flex';
   requestAnimationFrame(() => m.classList.add('show'));
   document.body.style.overflow = 'hidden';
