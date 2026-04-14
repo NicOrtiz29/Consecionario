@@ -445,7 +445,7 @@ async function initGeneralSimulator() {
   try {
     const apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
       ? 'http://localhost:3005/api/alarfin-data' 
-      : '/api/alarfin-data';
+      : 'https://bbruno-api.onrender.com/api/alarfin-data';
 
     const resp = await fetch(apiUrl);
     if (!resp.ok) throw new Error('API Offline');
