@@ -138,7 +138,7 @@
   <!-- Announcement bar -->
   <div class="brand-strip">
     📍 Tristán Suárez, Ezeiza, Bs.As. &nbsp;|&nbsp; 
-    <a href="https://wa.me/541123150051" target="_blank">📱 WhatsApp: 11-2315-0051</a>
+    <a href="https://wa.me/541523150051" target="_blank">📱 WhatsApp: 15-2315-0051</a>
     &nbsp;|&nbsp; Compro · Vendo · Permuto · Financio
   </div>
 
@@ -337,54 +337,70 @@
           <h2 class="section-title" style="margin-bottom: 1rem;">Simulá tu <span class="text-yellow">préstamo</span></h2>
           <p class="text-gray" style="margin-bottom: 1.5rem;">
             En BBruno Automotores te ayudamos a subirte a tu próximo auto. 
-            Usamos tasas preferenciales de <strong>Alarfin</strong> para que pagues menos.
+            Usamos tasas preferenciales para que pagues menos.
           </p>
           <ul style="display:grid; gap:0.75rem; margin-bottom: 2rem;">
             <li style="display:flex; align-items:center; gap:0.75rem; font-size:0.9rem; color:var(--color-gray-light);">
-              <i class="fas fa-check-circle" style="color:var(--color-success)"></i> Solo con tu DNI
+              <i class="fas fa-check-circle" style="color:var(--color-yellow)"></i> Solo con tu DNI
             </li>
             <li style="display:flex; align-items:center; gap:0.75rem; font-size:0.9rem; color:var(--color-gray-light);">
-              <i class="fas fa-check-circle" style="color:var(--color-success)"></i> Cuotas fijas y en pesos
+              <i class="fas fa-check-circle" style="color:var(--color-yellow)"></i> Cuotas fijas y en pesos
             </li>
             <li style="display:flex; align-items:center; gap:0.75rem; font-size:0.9rem; color:var(--color-gray-light);">
-              <i class="fas fa-check-circle" style="color:var(--color-success)"></i> Entrega inmediata
+              <i class="fas fa-check-circle" style="color:var(--color-yellow)"></i> Entrega inmediata
             </li>
           </ul>
         </div>
         
         <!-- Tarjeta del Simulador -->
-        <div id="generalSimulator">
-          <div class="simulator-card" style="background: var(--color-gray-dark); border: 1px solid rgba(245,216,10,0.15); margin-top:0;">
+        <div id="generalSimulator" class="fade-in-up">
+          <div class="simulator-card">
+            <header class="simulator-header">
+              <h4 class="simulator-title">
+                <i class="fas fa-calculator" aria-hidden="true"></i> 
+                Simulación Directa
+              </h4>
+              <div class="simulator-badge">Alarfin Finance</div>
+            </header>
+
             <div id="genSimLoading" style="text-align:center; padding: 2rem;">
-              <div class="spinner" style="width:24px; height:24px;"></div>
-              <p style="font-size:0.85rem; color:var(--color-gray); margin-top:0.5rem">Conectando con Alarfin...</p>
+              <div class="spinner" style="width:30px; height:30px; margin:0 auto 1rem;"></div>
+              <p style="font-size:0.9rem; color:var(--color-gray); font-weight:500;">Conectando con tasas oficiales...</p>
             </div>
             
             <div id="genSimContent" style="display:none">
               <div class="sim-field">
-                <div class="sim-label"><span>Monto a financiar</span> <span class="sim-value" id="genSimMontoText">$ 1.000.000</span></div>
+                <label class="sim-label" for="genSimMonto">
+                  <span>Monto a financiar</span>
+                  <span class="sim-value" id="genSimMontoText">$ 0</span>
+                </label>
                 <input type="range" id="genSimMonto" class="sim-slider" min="500000" max="25000000" step="100000" value="5000000">
               </div>
               <div class="sim-field">
-                <div class="sim-label"><span>Año del vehículo</span> <span class="sim-value" id="genSimAnioText">2018</span></div>
+                <label class="sim-label" for="genSimAnio">
+                  <span>Año del vehículo</span>
+                  <span class="sim-value" id="genSimAnioText">2018</span>
+                </label>
                 <input type="range" id="genSimAnio" class="sim-slider" min="2010" max="2025" step="1" value="2018">
               </div>
               <div class="sim-field">
-                <div class="sim-label"><span>Plazo en cuotas</span></div>
+                <label class="sim-label"><span>Plazo en cuotas fijas</span></label>
                 <div class="cuotas-grid" id="genSimCuotasGrid">
-                  <button class="cuota-btn" data-cuotas="12">12</button>
-                  <button class="cuota-btn" data-cuotas="24">24</button>
-                  <button class="cuota-btn active" data-cuotas="36">36</button>
-                  <button class="cuota-btn" data-cuotas="48">48</button>
+                  <button class="cuota-btn" data-cuotas="12" aria-label="12 cuotas">12</button>
+                  <button class="cuota-btn" data-cuotas="24" aria-label="24 cuotas">24</button>
+                  <button class="cuota-btn active" data-cuotas="36" aria-label="36 cuotas">36</button>
+                  <button class="cuota-btn" data-cuotas="48" aria-label="48 cuotas">48</button>
                 </div>
               </div>
-              <div class="result-box" style="background:rgba(0,0,0,0.3)">
-                <div style="font-size:0.7rem; color:var(--color-gray); text-transform:uppercase; letter-spacing:0.05em;">Cuota estimada</div>
-                <div class="result-cuota" id="genSimResult" style="font-size:2rem; color:var(--color-yellow)">$ 0</div>
-                <p style="font-size:0.7rem; color:var(--color-gray); margin-top:0.5rem">Sujeto a aprobación. Tasas Banco/Financiera.</p>
+              <div class="result-box">
+                <span class="detail-price-note" style="text-transform:uppercase; font-weight:700; letter-spacing:0.1em;">Cuota mensual estimada</span>
+                <strong class="result-cuota" id="genSimResult">$ 0</strong>
+                <p class="result-info">
+                  <i class="fas fa-shield-halved"></i> Sujeto a aprobación crediticia. No incluye seguro.
+                </p>
               </div>
             </div>
-            <div id="genSimError" class="sim-error" style="display:none"></div>
+            <div id="genSimError" class="sim-error" style="display:none; padding:1.25rem; background:rgba(231,76,60,0.1); border-radius:16px; border:1px solid rgba(231,76,60,0.2);"></div>
           </div>
         </div>
       </div>
@@ -449,9 +465,9 @@
         <div class="contact-card">
           <div class="contact-icon"><i class="fab fa-whatsapp" aria-hidden="true"></i></div>
           <div class="contact-label">WhatsApp</div>
-          <div class="contact-value">11-2315-0051</div>
-          <div class="contact-sub">También: Lucas 15-6190-0965 | Kevin 15-6190-0966</div>
-          <a href="https://wa.me/541123150051" target="_blank" rel="noopener" class="btn whatsapp-btn btn-sm" style="margin-top:1rem;background:#25D366;color:#fff;border-color:#25D366">
+          <div class="contact-value">15-2315-0051</div>
+          <div class="contact-sub">También: Lucas 15-2315-0051 | Kevin 15-6190-0965</div>
+          <a href="https://wa.me/541523150051" target="_blank" rel="noopener" class="btn whatsapp-btn btn-sm" style="margin-top:1rem;background:#25D366;color:#fff;border-color:#25D366">
             <i class="fab fa-whatsapp" aria-hidden="true"></i> Enviar mensaje
           </a>
         </div>
@@ -618,15 +634,15 @@
           </div>
           <div class="footer-contact-item">
             <i class="fab fa-whatsapp" aria-hidden="true"></i>
-            <span>11-2315-0051</span>
+            <span>15-2315-0051</span>
           </div>
           <div class="footer-contact-item">
             <i class="fas fa-user" aria-hidden="true"></i>
-            <span>Lucas: 15-6190-0965</span>
+            <span>Lucas: 15-2315-0051</span>
           </div>
           <div class="footer-contact-item">
             <i class="fas fa-user" aria-hidden="true"></i>
-            <span>Kevin: 15-6190-0966</span>
+            <span>Kevin: 15-6190-0965</span>
           </div>
         </div>
       </div>

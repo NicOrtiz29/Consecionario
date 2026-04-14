@@ -127,66 +127,8 @@
       animation: pulse 1.5s infinite;
     }
     .loader-text { font-size: 0.85rem; color: var(--color-gray); }
-    /* Simulator Styles */
-    .simulator-card {
-      background: linear-gradient(145deg, var(--color-gray-dark), var(--color-carbon-mid));
-      border: 1px solid rgba(245,216,10,0.2);
-      border-radius: var(--border-radius-lg);
-      padding: 1.5rem;
-      margin-top: 2rem;
-      box-shadow: var(--shadow-md);
-    }
-    .simulator-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: 1.25rem;
-    }
-    .simulator-title {
-      font-size: 1rem; font-weight: 700; color: var(--color-yellow);
-      display: flex; align-items: center; gap: 0.5rem; margin: 0;
-    }
-    .simulator-badge {
-      font-size: 0.65rem; background: rgba(245,216,10,0.1);
-      padding: 0.2rem 0.5rem; border-radius: 4px; color: var(--color-yellow);
-      border: 1px solid rgba(245,216,10,0.2);
-    }
-    .sim-field { margin-bottom: 1rem; }
-    .sim-label {
-      display: flex; justify-content: space-between; align-items: center;
-      font-size: 0.75rem; color: var(--color-gray); margin-bottom: 0.5rem;
-      text-transform: uppercase; font-weight: 600;
-    }
-    .sim-value { color: var(--color-white); font-weight: 700; }
-    .sim-slider {
-      width: 100%;height: 6px; background: rgba(255,255,255,0.1);
-      border-radius: 10px; outline: none; -webkit-appearance: none;
-    }
-    .sim-slider::-webkit-slider-thumb {
-      -webkit-appearance: none; width: 18px; height: 18px;
-      background: var(--color-yellow); border-radius: 50%; cursor: pointer;
-      box-shadow: 0 0 10px rgba(245,216,10,0.5);
-    }
-    .cuotas-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem;
-    }
-    .cuota-btn {
-      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
-      padding: 0.5rem; border-radius: 8px; color: var(--color-white);
-      font-size: 0.85rem; font-weight: 700; transition: var(--transition);
-    }
-    .cuota-btn.active {
-      background: var(--color-yellow); color: var(--color-black);
-      border-color: var(--color-yellow);
-    }
-    .result-box {
-      background: rgba(0,0,0,0.2); border-radius: 12px; padding: 1rem;
-      margin-top: 1.25rem; text-align: center; border: 1px dashed rgba(255,255,255,0.1);
-    }
-    .result-cuota {
-      font-size: 1.75rem; font-weight: 900; color: var(--color-yellow);
-      font-family: var(--font-display); line-height: 1.2;
-    }
-    .result-info { font-size: 0.75rem; color: var(--color-gray); margin-top: 0.25rem; }
-    .sim-error { color: var(--color-danger); font-size: 0.8rem; text-align: center; margin-top: 0.5rem; }
+
+
   </style>
 </head>
 <body>
@@ -303,46 +245,51 @@
             </div>
 
             <!-- Financing Simulator -->
-            <div id="simulatorContainer" style="display:block"> <!-- Siempre visible -->
-              <div class="simulator-card">
-                <div class="simulator-header">
-                  <h4 class="simulator-title"><i class="fas fa-calculator"></i> Simulador de Créditos</h4>
-                  <span class="simulator-badge">Alarfin</span>
-                </div>
+            <div id="simulatorContainer" style="display:block">
+              <article class="simulator-card fade-in-up">
+                <header class="simulator-header">
+                  <h4 class="simulator-title">
+                    <i class="fas fa-calculator" aria-hidden="true"></i> 
+                    Simulador Premium
+                  </h4>
+                  <div class="simulator-badge">Alarfin Finance</div>
+                </header>
                 
-                <div id="simLoading" style="text-align:center; padding: 1rem;">
-                  <div class="spinner" style="width:20px; height:20px; margin:0 auto 0.5rem;"></div>
-                  <div style="font-size:0.8rem; color:var(--color-gray)">Cargando tasas de financiación...</div>
+                <div id="simLoading" style="text-align:center; padding: 2rem;">
+                  <div class="spinner" style="width:30px; height:30px; margin:0 auto 1rem;"></div>
+                  <div style="font-size:0.9rem; color:var(--color-gray); font-weight:500;">Conectando con tasas oficiales...</div>
                 </div>
 
-                <div id="simContent" style="display:none"> <!-- Se oculta mientras carga -->
+                <div id="simContent" style="display:none">
                   <div class="sim-field">
-                    <div class="sim-label">
+                    <label class="sim-label" for="simMonto">
                       <span>Monto a financiar</span>
                       <span class="sim-value" id="simMontoText">$ 0</span>
-                    </div>
+                    </label>
                     <input type="range" id="simMonto" class="sim-slider" min="0" max="1000000" step="50000">
                   </div>
 
                   <div class="sim-field">
-                    <div class="sim-label"><span>Plazo en cuotas</span></div>
+                    <label class="sim-label"><span>Plazo en cuotas fijas</span></label>
                     <div class="cuotas-grid" id="simCuotasGrid">
-                      <button class="cuota-btn" data-cuotas="12">12</button>
-                      <button class="cuota-btn" data-cuotas="24">24</button>
-                      <button class="cuota-btn active" data-cuotas="36">36</button>
-                      <button class="cuota-btn" data-cuotas="48">48</button>
+                      <button class="cuota-btn" data-cuotas="12" aria-label="12 cuotas">12</button>
+                      <button class="cuota-btn" data-cuotas="24" aria-label="24 cuotas">24</button>
+                      <button class="cuota-btn active" data-cuotas="36" aria-label="36 cuotas">36</button>
+                      <button class="cuota-btn" data-cuotas="48" aria-label="48 cuotas">48</button>
                     </div>
                   </div>
 
                   <div class="result-box">
-                    <div class="detail-price-note">Cuota mensual estimada</div>
-                    <div class="result-cuota" id="simResultCuota">$ 0</div>
-                    <div class="result-info">Sujeto a aprobación crediticia de Alarfin.</div>
+                    <span class="detail-price-note" style="text-transform:uppercase; font-weight:700; letter-spacing:0.1em;">Cuota mensual estimada</span>
+                    <strong class="result-cuota" id="simResultCuota">$ 0</strong>
+                    <p class="result-info">
+                      <i class="fas fa-shield-halved"></i> Sujeto a aprobación crediticia. No incluye seguro.
+                    </p>
                   </div>
                 </div>
                 
-                <div id="simError" class="sim-error" style="display:none; padding:1rem; background:rgba(231,76,60,0.1); border-radius:8px;"></div>
-              </div>
+                <div id="simError" class="sim-error" style="display:none; padding:1.25rem; background:rgba(231,76,60,0.1); border-radius:16px; border:1px solid rgba(231,76,60,0.2);"></div>
+              </article>
             </div>
 
             <!-- Inquiry Form -->
@@ -404,8 +351,8 @@
     <div class="container">
       <div class="footer-bottom">
         <span>© 2025 BBruno Automotores · Tristán Suárez, Ezeiza</span>
-        <a href="https://wa.me/541123150051" target="_blank" rel="noopener">
-          <i class="fab fa-whatsapp"></i> 11-2315-0051
+        <a href="https://wa.me/541523150051" target="_blank" rel="noopener">
+          <i class="fab fa-whatsapp"></i> 15-2315-0051
         </a>
       </div>
     </div>
@@ -536,7 +483,7 @@
 
       // También abrir WhatsApp
       const waMsg = `Hola BBruno, soy ${name} y me interesa el ${vehicle?.year} ${vehicle?.brand} ${vehicle?.model}. ${message || '¿Sigue disponible?'}`;
-      setTimeout(() => window.open(`https://wa.me/541123150051?text=${encodeURIComponent(waMsg)}`, '_blank'), 1000);
+      setTimeout(() => window.open(`https://wa.me/541523150051?text=${encodeURIComponent(waMsg)}`, '_blank'), 1000);
     } catch (err) {
       console.error('[Detail] Error submitting lead:', err);
       showToast('Error al enviar', 'Por favor contactanos directamente por WhatsApp.', 'error');
@@ -653,10 +600,10 @@
       const isAvail = vehicle.status === 'disponible' || !vehicle.status;
       const waMsg = `Hola BBruno! Me interesa el ${vehicle.year} ${vehicle.brand} ${vehicle.model}. ¿Sigue disponible?`;
       cta.innerHTML = isAvail ? `
-        <a href="https://wa.me/541123150051?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn whatsapp-btn btn-lg" style="flex:1;background:#25D366;color:#fff;border-color:#25D366">
+        <a href="https://wa.me/541523150051?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn whatsapp-btn btn-lg" style="flex:1;background:#25D366;color:#fff;border-color:#25D366">
           <i class="fab fa-whatsapp" aria-hidden="true"></i> Consultar por WhatsApp
         </a>
-        <a href="tel:+541123150051" class="btn btn-outline">
+        <a href="tel:+541523150051" class="btn btn-outline">
           <i class="fas fa-phone" aria-hidden="true"></i> Llamar
         </a>
       ` : `<span class="badge badge-${vehicle.status==='vendido'?'danger':'warning'}" style="font-size:.9rem;padding:.5rem 1rem">${vehicle.status==='vendido'?'Este vehículo ya fue vendido':'Reservado - Consultar disponibilidad'}</span>`;
@@ -806,12 +753,32 @@
     }
     
     if (tasa) {
-      $('#simResultCuota').textContent = formatCurrency(monto * tasa);
+      animateValue($('#simResultCuota'), monto * tasa);
     } else {
       $('#simResultCuota').textContent = 'Consultar';
       errorDiv.textContent = 'No hay tasas disponibles para este modelo.';
       errorDiv.style.display = 'block';
     }
+  }
+
+  // Animación para los números
+  function animateValue(obj, end, duration = 400) {
+    let startTimestamp = null;
+    const startText = obj.textContent.replace(/[^\d]/g, '');
+    const startValue = parseInt(startText) || 0;
+    
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const current = Math.floor(progress * (end - startValue) + startValue);
+      obj.textContent = formatCurrency(current);
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        obj.textContent = formatCurrency(end);
+      }
+    };
+    window.requestAnimationFrame(step);
   }
 
   // Event Listeners para el simulador

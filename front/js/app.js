@@ -46,6 +46,28 @@ function slugify(str) {
     .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
 }
 
+// Animación para los números
+function animateValue(obj, end, duration = 400) {
+  if (!obj) return;
+  let startTimestamp = null;
+  const startText = obj.textContent.replace(/[^\d]/g, '');
+  const startValue = parseInt(startText) || 0;
+  
+  const step = (timestamp) => {
+    if (!startTimestamp) startTimestamp = timestamp;
+    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+    const current = Math.floor(progress * (end - startValue) + startValue);
+    obj.textContent = formatCurrency(current);
+    if (progress < 1) {
+      window.requestAnimationFrame(step);
+    } else {
+      obj.textContent = formatCurrency(end);
+    }
+  };
+  window.requestAnimationFrame(step);
+}
+
+
 function getStatusLabel(status) {
   const map = {
     disponible: { label: 'Disponible', cls: 'badge-success' },
@@ -261,7 +283,7 @@ function goToDetail(id) {
 
 function quickWhatsApp(vehicleId, vehicleName) {
   const msg = `¡Hola BBruno! Me interesa el ${vehicleName}. ¿Sigue disponible?`;
-  window.open(`https://wa.me/541123150051?text=${encodeURIComponent(msg)}`, '_blank');
+  window.open(`https://wa.me/541523150051?text=${encodeURIComponent(msg)}`, '_blank');
 }
 
 // ============================================================
@@ -488,8 +510,9 @@ function calculateGenSim() {
   }
   
   if (tasa) {
-    if($('#genSimResult')) $('#genSimResult').textContent = formatCurrency(monto * tasa);
+    animateValue($('#genSimResult'), monto * tasa);
   } else {
-    if($('#genSimResult')) $('#genSimResult').textContent = 'Consultar';
+    const res = $('#genSimResult');
+    if (res) res.textContent = 'Consultar';
   }
 }
