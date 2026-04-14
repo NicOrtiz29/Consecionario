@@ -328,6 +328,71 @@
 
   <div class="section-divider"></div>
 
+  <!-- SIMULADOR GENERAL -->
+  <section class="section-sm" style="background: var(--color-carbon-mid); border-bottom: 1px solid rgba(255,255,255,0.05);">
+    <div class="container">
+      <div class="grid grid-2" style="align-items: center; gap: 3rem;">
+        <div>
+          <p class="section-label" style="justify-content: flex-start;"><span>Financiación Express</span></p>
+          <h2 class="section-title" style="margin-bottom: 1rem;">Simulá tu <span class="text-yellow">préstamo</span></h2>
+          <p class="text-gray" style="margin-bottom: 1.5rem;">
+            En BBruno Automotores te ayudamos a subirte a tu próximo auto. 
+            Usamos tasas preferenciales de <strong>Alarfin</strong> para que pagues menos.
+          </p>
+          <ul style="display:grid; gap:0.75rem; margin-bottom: 2rem;">
+            <li style="display:flex; align-items:center; gap:0.75rem; font-size:0.9rem; color:var(--color-gray-light);">
+              <i class="fas fa-check-circle" style="color:var(--color-success)"></i> Solo con tu DNI
+            </li>
+            <li style="display:flex; align-items:center; gap:0.75rem; font-size:0.9rem; color:var(--color-gray-light);">
+              <i class="fas fa-check-circle" style="color:var(--color-success)"></i> Cuotas fijas y en pesos
+            </li>
+            <li style="display:flex; align-items:center; gap:0.75rem; font-size:0.9rem; color:var(--color-gray-light);">
+              <i class="fas fa-check-circle" style="color:var(--color-success)"></i> Entrega inmediata
+            </li>
+          </ul>
+        </div>
+        
+        <!-- Tarjeta del Simulador -->
+        <div id="generalSimulator">
+          <div class="simulator-card" style="background: var(--color-gray-dark); border: 1px solid rgba(245,216,10,0.15); margin-top:0;">
+            <div id="genSimLoading" style="text-align:center; padding: 2rem;">
+              <div class="spinner" style="width:24px; height:24px;"></div>
+              <p style="font-size:0.85rem; color:var(--color-gray); margin-top:0.5rem">Conectando con Alarfin...</p>
+            </div>
+            
+            <div id="genSimContent" style="display:none">
+              <div class="sim-field">
+                <div class="sim-label"><span>Monto a financiar</span> <span class="sim-value" id="genSimMontoText">$ 1.000.000</span></div>
+                <input type="range" id="genSimMonto" class="sim-slider" min="500000" max="25000000" step="100000" value="5000000">
+              </div>
+              <div class="sim-field">
+                <div class="sim-label"><span>Año del vehículo</span> <span class="sim-value" id="genSimAnioText">2018</span></div>
+                <input type="range" id="genSimAnio" class="sim-slider" min="2010" max="2025" step="1" value="2018">
+              </div>
+              <div class="sim-field">
+                <div class="sim-label"><span>Plazo en cuotas</span></div>
+                <div class="cuotas-grid" id="genSimCuotasGrid">
+                  <button class="cuota-btn" data-cuotas="12">12</button>
+                  <button class="cuota-btn" data-cuotas="24">24</button>
+                  <button class="cuota-btn active" data-cuotas="36">36</button>
+                  <button class="cuota-btn" data-cuotas="48">48</button>
+                </div>
+              </div>
+              <div class="result-box" style="background:rgba(0,0,0,0.3)">
+                <div style="font-size:0.7rem; color:var(--color-gray); text-transform:uppercase; letter-spacing:0.05em;">Cuota estimada</div>
+                <div class="result-cuota" id="genSimResult" style="font-size:2rem; color:var(--color-yellow)">$ 0</div>
+                <p style="font-size:0.7rem; color:var(--color-gray); margin-top:0.5rem">Sujeto a aprobación. Tasas Banco/Financiera.</p>
+              </div>
+            </div>
+            <div id="genSimError" class="sim-error" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
   <!-- POR QUÉ ELEGIRNOS -->
   <section class="section" id="nosotros" aria-label="Por qué elegirnos">
     <div class="container">

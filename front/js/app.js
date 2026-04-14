@@ -132,6 +132,8 @@ async function submitLead(data) {
 let allVehicles = [];
 let filteredVehicles = [];
 let branchesMap = {};
+let alarfinData = null;
+let genSimCuotas = 36;
 
 // ============================================================
 // VEHICLE CARD RENDERING
@@ -403,6 +405,9 @@ async function init() {
   $$('#filterFuel,#filterSort').forEach(el => {
     el?.addEventListener('change', applyFilters);
   });
+
+  // General Simulator
+  if ($('#genSimMonto')) initGeneralSimulator();
 }
 
 document.addEventListener('DOMContentLoaded', init);
@@ -410,3 +415,81 @@ document.addEventListener('DOMContentLoaded', init);
 // Exponer globalmente
 window.goToDetail = goToDetail;
 window.quickWhatsApp = quickWhatsApp;
+
+async function initGeneralSimulator() {
+  const container = $('#genSimContent');
+  const loading = $('#genSimLoading');
+  const errorDiv = $('#genSimError');
+  const montoInput = $('#genSimMonto');
+  const anioInput = $('#genSimAnio');
+
+  if (!montoInput || !anioInput) return;
+
+  const updateTexts = () => {
+    if ($('#genSimMontoText')) $('#genSimMontoText').textContent = formatCurrency(montoInput.value);
+    if ($('#genSimAnioText')) $('#genSimAnioText').textContent = anioInput.value;
+  };
+
+  montoInput.addEventListener('input', () => { updateTexts(); calculateGenSim(); });
+  anioInput.addEventListener('input', () => { updateTexts(); calculateGenSim(); });
+
+  $$('#genSimCuotasGrid .cuota-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('#genSimCuotasGrid .cuota-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      genSimCuotas = parseInt(btn.dataset.cuotas);
+      calculateGenSim();
+    });
+  });
+
+  try {
+    const apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+      ? 'http://localhost:3005/api/alarfin-data' 
+      : '/api/alarfin-data';
+
+    const resp = await fetch(apiUrl);
+    if (!resp.ok) throw new Error('API Offline');
+    const rawData = await resp.json();
+    alarfinData = rawData.tasas || rawData;
+
+    if (typeof alarfinData !== 'object' || Object.keys(alarfinData).length === 0) throw new Error('Invalid Data');
+    
+    if(loading) loading.style.display = 'none';
+    if(container) container.style.display = 'block';
+    updateTexts();
+    calculateGenSim();
+  } catch (err) {
+    if(loading) loading.style.display = 'none';
+    if(errorDiv) {
+      errorDiv.textContent = 'Servicio de simulación temporalmente inaccesible.';
+      errorDiv.style.display = 'block';
+    }
+  }
+}
+
+function calculateGenSim() {
+  if (!alarfinData) return;
+  const monto = parseInt($('#genSimMonto').value);
+  const year = parseInt($('#genSimAnio').value);
+  const cuotas = genSimCuotas;
+  
+  const yearKey = year.toString();
+  const cuotaKey = cuotas.toString();
+  let tasa = null;
+
+  if (alarfinData[yearKey] && alarfinData[yearKey][cuotaKey]) {
+    tasa = parseFloat(alarfinData[yearKey][cuotaKey]);
+  } else {
+    const availableYears = Object.keys(alarfinData).map(Number).sort((a,b) => b-a);
+    const fallbackYear = availableYears.find(y => year >= y);
+    if (fallbackYear && alarfinData[fallbackYear.toString()] && alarfinData[fallbackYear.toString()][cuotaKey]) {
+      tasa = parseFloat(alarfinData[fallbackYear.toString()][cuotaKey]);
+    }
+  }
+  
+  if (tasa) {
+    if($('#genSimResult')) $('#genSimResult').textContent = formatCurrency(monto * tasa);
+  } else {
+    if($('#genSimResult')) $('#genSimResult').textContent = 'Consultar';
+  }
+}

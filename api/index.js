@@ -82,6 +82,18 @@ app.get('/api/ig-extract', async (req, res) => {
   }
 });
 
+// Proxy para datos de Alarfin Financing
+app.get('/api/alarfin-data', async (req, res) => {
+  try {
+    const response = await fetch('https://simulador.alarfin.com.ar/datos');
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('[Alarfin Proxy Error]', err);
+    res.status(500).json({ error: 'Error al obtener datos de Alarfin' });
+  }
+});
+
 app.listen(port, () => {
   console.log(`API server running on http://localhost:${port}`);
 });
