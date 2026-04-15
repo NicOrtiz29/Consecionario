@@ -14,9 +14,13 @@ window.APP_CONFIG = {
   ROLES: {
     ADMIN: 'administrador',
     EDITOR: 'editor',
-    VIEWER: 'visualizador'
+    VIEWER: 'visualizador',
+    SELLER: 'vendedor'
   },
 
+  // API Backend
+  API_URL: 'http://localhost:3005/api',
+
   // Versión del frontend
-  VERSION: '3.0.0-supabase'
+  VERSION: '3.1.0-secure-auth'
 };

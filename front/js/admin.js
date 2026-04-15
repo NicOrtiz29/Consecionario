@@ -10,6 +10,14 @@
 const $ = sel => document.querySelector(sel);
 const $$ = (sel, cur = document) => [...cur.querySelectorAll(sel)];
 
+// SECURITY: XSS protection — escape HTML entities in dynamic content
+function escapeHtml(str) {
+  if (str == null) return '';
+  const div = document.createElement('div');
+  div.textContent = String(str);
+  return div.innerHTML;
+}
+
 function formatCurrency(n) {
   if (!n) return 'Sin precio';
   return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 0 }).format(n);
@@ -38,56 +46,76 @@ function showToast(title, msg = '', type = 'default') {
   const icons = { success: '✅', error: '❌', warning: '⚠️', default: 'ℹ️', info: 'ℹ️', danger: '❌' };
   const t = document.createElement('div');
   t.className = `toast toast-${type}`;
-  t.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><div class="toast-body"><div class="toast-title">${title}</div>${msg?`<div class="toast-message">${msg}</div>`:''}</div>`;
+  // SECURITY: Escape all dynamic content to prevent XSS
+  t.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><div class="toast-body"><div class="toast-title">${escapeHtml(title)}</div>${msg?`<div class="toast-message">${escapeHtml(msg)}</div>`:''}</div>`;
   c.appendChild(t);
   setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(100%)'; t.style.transition='all .3s'; setTimeout(()=>t.remove(),300); }, 4500);
 }
 
 // ── Auth ──
 const AUTH_KEY = 'bbruno_admin_session';
+const TOKEN_KEY = 'bbruno_admin_token';
+const REFRESH_KEY = 'bbruno_admin_refresh';
 
 let currentUser = null;
 
-const DEMO_USERS = [
-  { id: 'user-admin-1', username: 'admin', password: 'admin2024', full_name: 'Administrador BBruno', role: window.APP_CONFIG?.ROLES.ADMIN || 'administrador' },
-  { id: 'user-editor-1', username: 'editor', password: 'editor2024', full_name: 'Editor de Inventario', role: window.APP_CONFIG?.ROLES.EDITOR || 'editor' },
-  { id: 'user-viewer-1', username: 'visualizador', password: 'visualizador2024', full_name: 'Consultor Visual', role: window.APP_CONFIG?.ROLES.VIEWER || 'visualizador' }
-];
-
 function getSession() {
-  try { return JSON.parse(sessionStorage.getItem(AUTH_KEY)); } catch { return null; }
+  try { return JSON.parse(localStorage.getItem(AUTH_KEY)); } catch { return null; }
 }
-function setSession(user) {
-  sessionStorage.setItem(AUTH_KEY, JSON.stringify(user));
+function setSession(user, tokens = {}) {
+  localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+  if (tokens.token) localStorage.setItem(TOKEN_KEY, tokens.token);
+  if (tokens.refreshToken) localStorage.setItem(REFRESH_KEY, tokens.refreshToken);
 }
 function clearSession() {
-  sessionStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem(AUTH_KEY);
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+}
+
+function logout() {
+  clearSession();
+  location.reload();
+}
+
+// Interceptor para fetch (agrega el token)
+async function refreshToken() {
+  const refresh = localStorage.getItem(REFRESH_KEY);
+  if (!refresh) return false;
+  try {
+    const res = await fetch(`${window.APP_CONFIG.API_URL}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: refresh })
+    });
+    if (!res.ok) throw new Error('Refresh failed');
+    const data = await res.json();
+    localStorage.setItem(TOKEN_KEY, data.token || data.accessToken);
+    return true;
+  } catch (err) {
+    console.warn('[Auth] No se pudo refrescar token:', err.message);
+    return false;
+  }
 }
 
 async function doLogin(username, password) {
-  // Intentar con Supabase
   try {
-    const users = await SupabaseClient.select('admin_users', {
-      filter: `username=eq.${username}`,
-      limit: 10,
+    const res = await fetch(`${window.APP_CONFIG.API_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
     });
-    const user = users.find(u => u.username === username && u.password_hash === password && u.is_active !== false);
-    if (user) {
-      const sess = { id: user.id, username: user.username, full_name: user.full_name, role: user.role };
-      setSession(sess);
-      return sess;
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Error al iniciar sesión');
     }
+    const data = await res.json();
+    setSession(data.user, data);
+    return data.user;
   } catch (err) {
-    console.warn('[Auth] Supabase login failed, using demo fallback:', err.message);
+    console.warn('[Auth] Login API falló:', err.message);
+    throw err;
   }
-  // Fallback a usuarios demo
-  const demo = DEMO_USERS.find(u => u.username === username && u.password === password);
-  if (demo) {
-    const sess = { id: demo.id, username: demo.username, full_name: demo.full_name, role: demo.role };
-    setSession(sess);
-    return sess;
-  }
-  return null;
 }
 
 // ── State ──
@@ -95,6 +123,7 @@ let allVehicles = [];
 let allMaintenance = [];
 let allLeads = [];
 let allBranches = [];
+let allUsers = [];
 let vehiclePhotos = [];
 let vehicleFeatures = [];
 let vehicleDocs = [];
@@ -104,19 +133,54 @@ let pendingDeleteTable = '';
 let pendingDeleteCallback = null;
 let currentPanel = 'dashboard';
 
-// ── API (Supabase) ──
-const db = window.SupabaseClient;
+// ── API Helpers ──
+async function apiFetch(endpoint, options = {}) {
+  const url = endpoint.startsWith('http') ? endpoint : `${window.APP_CONFIG.API_URL}${endpoint}`;
+  const headers = { ...options.headers };
+  
+  // Usamos la constante TOKEN_KEY que ya definimos arriba
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  
+  if (options.body && !(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+    if (typeof options.body === 'object') options.body = JSON.stringify(options.body);
+  }
 
-async function apiGet(table, opts = {}) {
-  return db.select(table, { order: 'created_at.desc', ...opts });
+  const res = await fetch(url, { ...options, headers });
+  
+  if (res.status === 401 || res.status === 403) {
+    // Si obtenemos error de auth, intentamos refrescar sesión
+    const refreshed = await refreshToken();
+    if (refreshed) {
+      // Reintentamos con el nuevo token
+      const newToken = localStorage.getItem(TOKEN_KEY);
+      headers['Authorization'] = `Bearer ${newToken}`;
+      const retryRes = await fetch(url, { ...options, headers });
+      if (retryRes.ok) return retryRes.json();
+    }
+    
+    // Si el refresh falla o sigue dando error
+    logout();
+    throw new Error('Sesión expirada o sin permisos');
+  }
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: 'Error desconocido' }));
+    throw new Error(data.error || 'Error en la petición');
+  }
+  return res.json();
+}
+
+async function apiGet(table) {
+  return apiFetch(`/tables/${table}`);
 }
 
 async function apiCreate(table, data) {
-  if (currentUser?.role === window.APP_CONFIG?.ROLES.VIEWER) {
-    showToast('Permiso denegado', 'Tu rol de visualizador no permite crear registros.', 'warning');
-    throw new Error('Unauthorized');
-  }
-  return db.insert(table, data);
+  return apiFetch(`/tables/${table}`, {
+    method: 'POST',
+    body: data
+  });
 }
 
 // Alias for Excel import compatibility
@@ -125,19 +189,16 @@ async function apiPost(table, data) {
 }
 
 async function apiUpdate(table, id, data) {
-  if (currentUser?.role === window.APP_CONFIG?.ROLES.VIEWER) {
-    showToast('Permiso denegado', 'Tu rol de visualizador no permite modificar registros.', 'warning');
-    throw new Error('Unauthorized');
-  }
-  return db.update(table, id, data);
+  return apiFetch(`/tables/${table}/${id}`, {
+    method: 'PATCH',
+    body: data
+  });
 }
 
 async function apiDelete(table, id) {
-  if (currentUser?.role !== window.APP_CONFIG?.ROLES.ADMIN) {
-    showToast('Permiso denegado', 'Solo los administradores pueden eliminar registros.', 'warning');
-    throw new Error('Unauthorized');
-  }
-  return db.remove(table, id);
+  return apiFetch(`/tables/${table}/${id}`, {
+    method: 'DELETE'
+  });
 }
 
 // ── Modal Management ──
@@ -365,9 +426,16 @@ const panelTitles = {
   maintenance: ['Mantenimiento', 'Historial de servicios'],
   leads: ['Consultas', 'Gestión de leads'],
   branches: ['Sucursales', 'Gestión de sucursales'],
+  users: ['Usuarios', 'Gestión de acceso y seguridad'],
+  logs: ['Auditoría', 'Registro de movimientos y seguridad'],
 };
 
 function switchPanel(name) {
+  const isAdmin = currentUser?.role === window.APP_CONFIG?.ROLES.ADMIN;
+  if ((name === 'users' || name === 'logs') && !isAdmin) {
+    showToast('Acceso denegado', 'Solo administradores pueden ver esta sección.', 'warning');
+    return;
+  }
   currentPanel = name;
   $$('.admin-panel').forEach(p => p.classList.remove('active'));
   const panel = $(`#panel-${name}`);
@@ -389,6 +457,8 @@ function switchPanel(name) {
   if (name === 'maintenance') renderMaintenanceList(allMaintenance);
   if (name === 'leads') renderLeadsList(allLeads);
   if (name === 'branches') renderBranchesList(allBranches);
+  if (name === 'users') loadUsers();
+  if (name === 'logs') loadLogs();
 }
 
 // ── Dashboard ──
@@ -495,7 +565,10 @@ function renderVehiclesTable(vehicles) {
             onerror="this.src='https://via.placeholder.com/72x48/2B2B2B/888?text=BB'">
         </td>
         <td>
-          <div class="table-vehicle-name">${v.brand || ''} ${v.model || ''}</div>
+          <div class="table-vehicle-name">
+            ${v.brand || ''} ${v.model || ''}
+            ${v.internal_notes ? `<i class="fas fa-sticky-note" style="color:var(--color-yellow);margin-left:.5rem;font-size:0.8rem" title="Contiene notas internas"></i>` : ''}
+          </div>
           <div class="table-vehicle-sub">${v.version || '—'}</div>
         </td>
         <td style="font-family:monospace;font-weight:700;letter-spacing:1px">${v.patent || '—'}</td>
@@ -586,6 +659,46 @@ function openVehicleModal(id = null) {
         docTagsCtrl?.render();
       }
     }
+  }
+
+  // SECURITY: Disable fields for Vendedor/Viewer
+  const role = currentUser?.role;
+  const isSeller = (role === 'vendedor');
+  const isViewer = (role === 'visualizador');
+  const isEditing = !!$('#vfId').value;
+  
+  if (isSeller || isViewer) {
+    const inputsToBlock = [
+      'vfBrand', 'vfModel', 'vfYear', 'vfVersion', 'vfColor', 
+      'vfMileage', 'vfDoors', 'vfEngine', 'vfPrice', 'vfDownPayment',
+      'vfFuel', 'vfTransmission', 'vfCondition', 'vfVin', 'vfPatent',
+      'vfDesc', 'vfFeatured', 'vfPhotoUrl', 'btnAddPhoto', 'btnExtractIG', 'vfPhotoFile'
+    ];
+
+    inputsToBlock.forEach(id => {
+      const el = $('#' + id);
+      if (el) {
+        el.disabled = true;
+        el.style.opacity = '0.6';
+      }
+    });
+
+    // Special exception: Sellers can edit status and internal notes
+    if (isSeller && isEditing) {
+      if ($('#vfStatus')) { $('#vfStatus').disabled = false; $('#vfStatus').style.opacity = '1'; }
+      if ($('#vfNotes')) { $('#vfNotes').disabled = false; $('#vfNotes').style.opacity = '1'; }
+      if ($('#btnSaveVehicle')) $('#btnSaveVehicle').style.display = 'flex';
+    } else {
+      // If it's a viewer or a seller creating new (not allowed), hide save
+      if ($('#btnSaveVehicle')) $('#btnSaveVehicle').style.display = 'none';
+    }
+  } else {
+    // Admin/Editor: Ensure everything is enabled
+    $$('#vehicleForm input, #vehicleForm select, #vehicleForm textarea, #btnAddPhoto, #btnExtractIG').forEach(el => {
+      el.disabled = false;
+      el.style.opacity = '1';
+    });
+    if ($('#btnSaveVehicle')) $('#btnSaveVehicle').style.display = 'flex';
   }
 
   openModal('vehicleModal');
@@ -1037,12 +1150,14 @@ async function saveBranch() {
   const combinedAddress = rawMaps ? `${rawAddr} | ${rawMaps}` : rawAddr;
 
   const data = {
-    id: id || ('branch-' + Date.now()),
     name,
     city,
     address: combinedAddress,
     is_active: $('#bfActive')?.value === 'true'
   };
+  
+  // Only send ID if editing, otherwise let DB handle it
+  if (id) data.id = id;
 
   const btn = $('#btnSaveBranch');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; }
@@ -1069,6 +1184,126 @@ async function loadBranches() {
     allBranches = await apiGet('branches', { order: 'name.asc' });
     if (currentPanel === 'branches') renderBranchesList(allBranches);
   } catch (err) { console.error('[Admin] Error cargando sucursales:', err); }
+}
+
+// ── Users Management ──
+function renderUsersTable(users) {
+  const tbody = $('#usersTableBody');
+  if (!tbody) return;
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="table-empty"><i class="fas fa-users" aria-hidden="true"></i><br>No hay usuarios registrados</td></tr>';
+    return;
+  }
+
+  // SECURITY: Escape all user-provided data to prevent XSS
+  tbody.innerHTML = users.map(u => {
+    const safeUsername = escapeHtml(u.username);
+    const safeName = escapeHtml(u.full_name) || '—';
+    const safeRole = escapeHtml(u.role);
+    const safeId = escapeHtml(u.id);
+    return `
+    <tr>
+      <td><div style="font-weight:700">${safeUsername}</div></td>
+      <td>${safeName}</td>
+      <td><span class="user-role-badge">${safeRole}</span></td>
+      <td>
+        <span class="badge ${u.is_active ? 'badge-success' : 'badge-danger'}">
+          ${u.is_active ? 'Activo' : 'Inactivo'}
+        </span>
+      </td>
+      <td>
+        <div class="table-actions">
+           <button class="btn btn-outline btn-sm btn-icon" title="Editar" onclick="openUserModal('${safeId}')">
+             <i class="fas fa-pen"></i>
+           </button>
+           ${u.id !== currentUser.id ? `
+           <button class="btn btn-danger btn-sm btn-icon" title="Eliminar" onclick="confirmDelete('admin_users','${safeId}','¿Eliminar al usuario ${safeUsername}?','loadUsers')">
+             <i class="fas fa-trash"></i>
+           </button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `}).join('');
+}
+
+async function loadUsers() {
+  if (currentUser?.role !== window.APP_CONFIG?.ROLES.ADMIN) return;
+  try {
+    const users = await apiFetch('/admin/users');
+    allUsers = users;
+    if (currentPanel === 'users') renderUsersTable(allUsers);
+  } catch (err) { console.error('[Admin] Error cargando usuarios:', err); }
+}
+
+function openUserModal(id = null) {
+  const form = $('#userForm');
+  if (form) form.reset();
+  $('#ufId').value = id || '';
+  $('#passHint').textContent = id ? 'Ingresa una contraseña solo si quieres cambiarla.' : 'La contraseña es obligatoria para nuevos usuarios.';
+  
+  if (id) {
+    const u = allUsers.find(x => x.id === id);
+    if (u) {
+      $('#ufUsername').value = u.username || '';
+      $('#ufFullName').value = u.full_name || '';
+      $('#ufRole').value = u.role || 'editor';
+      $('#ufActive').checked = !!u.is_active;
+      $('#ufUsername').disabled = true; // No permitir cambiar username
+    }
+  } else {
+    $('#ufUsername').disabled = false;
+    $('#ufRole').value = 'vendedor';
+    $('#ufActive').checked = true;
+  }
+  openModal('userModal');
+}
+
+async function saveUser() {
+  const id = $('#ufId').value;
+  const username = $('#ufUsername').value.trim();
+  const password = $('#ufPassword').value.trim();
+  const full_name = $('#ufFullName').value.trim();
+  const role = $('#ufRole').value;
+  const is_active = $('#ufActive').checked;
+
+  if (!username || !full_name || (!id && !password)) {
+    showToast('Campos requeridos', 'Completá usuario, nombre y contraseña.', 'warning');
+    return;
+  }
+
+  const data = { username, full_name, role, is_active };
+  if (password) data.password = password;
+
+  const btn = $('#btnSaveUser');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; }
+
+  try {
+    const endpoint = id ? `/api/admin/users/${id}` : '/api/admin/users';
+    const method = id ? 'PATCH' : 'POST';
+    
+    await apiFetch(endpoint, {
+      method,
+      body: data
+    });
+
+    showToast('¡Éxito!', id ? 'Usuario actualizado.' : 'Usuario creado correctamente.', 'success');
+    closeModal('userModal');
+    await loadUsers();
+  } catch (err) {
+    showToast('Error', err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-floppy-disk"></i> Guardar usuario'; }
+  }
+}
+
+function generateRandomPass() {
+  // SECURITY: Use crypto.getRandomValues for better randomness
+  const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+  const array = new Uint32Array(12);
+  crypto.getRandomValues(array);
+  let pass = '';
+  for (let i = 0; i < 12; i++) pass += chars[array[i] % chars.length];
+  $('#ufPassword').value = pass;
 }
 
 // ── Delete Confirm ──
@@ -1110,6 +1345,44 @@ function updateClock() {
 }
 
 // ── Main Init ──
+// ── Logs ──
+async function loadLogs() {
+  try {
+    const logs = await apiGet('audit_logs');
+    const tbody = $('#logsTableBody');
+    if (!tbody) return;
+    
+    if (!logs.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="table-empty">No hay movimientos registrados.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = logs.map(log => {
+      const date = new Date(log.created_at).toLocaleString('es-AR');
+      let badgeClass = 'badge-info';
+      if (log.action === 'DELETE') badgeClass = 'badge-danger';
+      if (log.action === 'CREATE') badgeClass = 'badge-success';
+      
+      const details = JSON.stringify(log.details || {}).substring(0, 100) + (JSON.stringify(log.details).length > 100 ? '...' : '');
+
+      return `
+        <tr>
+          <td style="font-size:0.8rem; color:var(--color-gray-light)">${date}</td>
+          <td><span style="font-weight:600">${log.username}</span></td>
+          <td><span class="badge ${badgeClass}">${log.action}</span></td>
+          <td><code style="color:var(--color-yellow)">${log.target_table}</code></td>
+          <td style="font-size:0.75rem; color:var(--color-gray)" title='${JSON.stringify(log.details)}'>
+            ${details}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('[Logs] Error:', err);
+    showToast('Error', 'No se pudieron cargar los logs auditaría.', 'danger');
+  }
+}
+
 async function initAdmin(user) {
   currentUser = user;
 
@@ -1147,10 +1420,7 @@ async function initAdmin(user) {
   });
 
   // Logout
-  $('#logoutBtn')?.addEventListener('click', () => {
-    clearSession();
-    location.reload();
-  });
+  $('#logoutBtn')?.addEventListener('click', logout);
 
   // Vehicle actions
   $('#btnNewVehicle')?.addEventListener('click', () => openVehicleModal());
@@ -1178,6 +1448,10 @@ async function initAdmin(user) {
   // Branches
   $('#btnNewBranch')?.addEventListener('click', () => openBranchModal());
   $('#btnSaveBranch')?.addEventListener('click', saveBranch);
+
+  // Users
+  $('#btnNewUser')?.addEventListener('click', () => openUserModal());
+  $('#btnSaveUser')?.addEventListener('click', saveUser);
 
   // Delete confirm
   $('#btnConfirmDelete')?.addEventListener('click', executeDelete);
@@ -1215,23 +1489,46 @@ async function initAdmin(user) {
 }
 
 function renderRoleBasedUI() {
-  const role = currentUser?.role;
+  if (!currentUser) return;
+  const role = currentUser.role;
   const roles = window.APP_CONFIG?.ROLES;
 
-  if (role === roles.VIEWER) {
-    $$('#btnNewVehicle, #btnNewMaintenance, #btnNewBranch').forEach(b => { if (b) b.style.display = 'none'; });
-    $$('#btnSaveVehicle, #btnSaveMaintenance').forEach(b => {
-      if (b) { b.disabled = true; b.title = 'Tu rol no permite guardar cambios'; b.style.opacity = '0.5'; }
-    });
+  // Sidebar link: Users only for Admin
+  const usersLink = $('#sidebarLinkUsers');
+  if (usersLink) usersLink.style.display = (role === roles.ADMIN) ? 'flex' : 'none';
+
+  const isStaff = (role === roles.ADMIN || role === roles.EDITOR);
+  const isAdmin = (role === roles.ADMIN);
+
+  $$('#btnNewVehicle, #btnNewMaintenance, #btnNewBranch, #btnExportExcel, #btnImportExcel').forEach(b => { 
+    if (b) b.style.display = isStaff ? 'flex' : 'none'; 
+  });
+  
+  const btnNewUser = $('#btnNewUser');
+  if (btnNewUser) btnNewUser.style.display = isAdmin ? 'flex' : 'none';
+
+  const logsLink = $('#sidebarLinkLogs');
+  if (logsLink) logsLink.style.display = isAdmin ? 'flex' : 'none';
+
+  // Table actions: Hide delete for non-admins (or non-staff)
+  const style = document.createElement('style');
+  style.id = 'role-based-styles';
+  const existingStyle = document.getElementById('role-based-styles');
+  if (existingStyle) existingStyle.remove();
+
+  let css = '';
+  if (role !== roles.ADMIN && role !== roles.EDITOR) {
+    css += '.btn-danger { display: none !important; } '; // Hide delete
+  }
+  
+  if (role === roles.SELLER || role === roles.VIEWER) {
+    // Sellers can see edit button for vehicles (to change status), 
+    // but not for branches or maintenance.
+    css += '#panel-branches .btn-outline, #panel-maintenance .btn-outline { display: none !important; } ';
   }
 
-  if (role !== roles.ADMIN) {
-    const deleteBtn = $('#btnConfirmDelete');
-    if (deleteBtn) deleteBtn.style.display = 'none';
-    if (role === roles.EDITOR) {
-      console.log('[Admin] Rol editor: Acceso a edición habilitado, borrado restringido.');
-    }
-  }
+  style.textContent = css;
+  document.head.appendChild(style);
 }
 
 // ── Login Flow ──
@@ -1268,11 +1565,15 @@ async function initLogin() {
       if (user) {
         await initAdmin(user);
       } else {
-        if (error) error.style.display = 'flex';
-        setTimeout(() => { if (error) error.style.display = 'none'; }, 3000);
+        openModal('loginErrorModal');
         $('#loginPass').value = '';
         $('#loginPass').focus();
       }
+    } catch (err) {
+      console.error('[Auth] Login error:', err);
+      openModal('loginErrorModal');
+      $('#loginPass').value = '';
+      $('#loginPass').focus();
     } finally {
       if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-right-to-bracket"></i> Iniciar sesión'; }
     }
@@ -1287,8 +1588,25 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const session = getSession();
   if (session) {
-    currentUser = session;
-    await initAdmin(session);
+    // SECURITY: Verify session against server (prevents localStorage tampering)
+    try {
+      const verifiedUser = await apiFetch('/auth/verify');
+      if (verifiedUser) {
+        // Update local session with server-verified data (role from DB, not localStorage)
+        setSession(verifiedUser);
+        currentUser = verifiedUser;
+        await initAdmin(verifiedUser);
+      } else {
+        console.warn('[Security] Sesión inválida, forzando re-login');
+        clearSession();
+        initLogin();
+      }
+    } catch (err) {
+      // Network error — allow offline access with cached session
+      console.warn('[Auth] No se pudo verificar sesión (offline?), usando caché');
+      currentUser = session;
+      await initAdmin(session);
+    }
   } else {
     initLogin();
   }
@@ -1302,6 +1620,10 @@ window.confirmDelete = confirmDelete;
 window.updateLeadStatus = updateLeadStatus;
 window.switchPanel = switchPanel;
 window.closeModal = closeModal;
+window.generateRandomPass = generateRandomPass;
+window.loadUsers = loadUsers;
+window.loadLogs = loadLogs;
+window.openUserModal = openUserModal;
 window.$ = $;
 window.exportVehiclesToExcel = exportVehiclesToExcel;
 window.handleExcelImport = handleExcelImport;
@@ -1438,7 +1760,10 @@ function handleExcelImport(event) {
         }
 
         try {
-          await window.SupabaseClient.upsert('vehicles', vehicleData, 'patent');
+          await apiFetch('/api/tables/vehicles/upsert?onConflict=patent', {
+            method: 'POST',
+            body: vehicleData
+          });
           successCount++;
         } catch (err) {
           console.error('[Import] Error subiendo fila:', vehicleData, err);

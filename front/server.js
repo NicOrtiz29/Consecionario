@@ -127,13 +127,49 @@ const server = http.createServer((req, res) => {
   // Static files handling
   let safePath = pathname === '/' ? 'index.html' : pathname;
   if (safePath.startsWith('/')) safePath = safePath.slice(1);
+
+  // SECURITY: Block path traversal attacks (e.g., ../../etc/passwd)
+  if (safePath.includes('..') || safePath.includes('\0')) {
+    console.warn(`[Security] Path traversal blocked: ${safePath}`);
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
+
   const filePath = path.join(__dirname, safePath);
+
+  // SECURITY: Verify resolved path is inside __dirname
+  const resolvedPath = path.resolve(filePath);
+  if (!resolvedPath.startsWith(path.resolve(__dirname))) {
+    console.warn(`[Security] Path escape blocked: ${resolvedPath}`);
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
+
   const ext = path.extname(filePath).toLowerCase();
-  const cTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpg', '.ico': 'image/x-icon' };
+  const cTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpg', '.ico': 'image/x-icon', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.woff2': 'font/woff2' };
+
+  // SECURITY: Block access to sensitive files
+  const blockedExts = ['.env', '.log', '.bak', '.sql', '.sh', '.bat'];
+  if (blockedExts.includes(ext) || safePath.includes('.env')) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
 
   fs.readFile(filePath, (err, cnt) => {
     if (err) { res.writeHead(err.code === 'ENOENT' ? 404 : 500); res.end(); }
-    else { res.writeHead(200, { 'Content-Type': cTypes[ext] || 'application/octet-stream' }); res.end(cnt); }
+    else {
+      // SECURITY: Add security headers on all responses
+      res.writeHead(200, {
+        'Content-Type': cTypes[ext] || 'application/octet-stream',
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-XSS-Protection': '1; mode=block',
+      });
+      res.end(cnt);
+    }
   });
 });
 

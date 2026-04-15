@@ -840,30 +840,49 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 }
 
 .sim-slider {
-  width: 100%; height: 6px; background: rgba(255,255,255,0.1);
+  width: 100%; height: 6px; background: rgba(255,255,255,0.12);
   border-radius: 10px; outline: none; -webkit-appearance: none;
   cursor: pointer;
-  accent-color: var(--color-yellow);
 }
 
-/* Chrome/Edge/Safari Sliders */
+/* ── Aggressive Sports Car SVG (Mustang Style) — 100% Transparent ── */
+
+/* Chrome/Edge/Safari */
 .sim-slider::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 22px; height: 22px;
-  background: var(--color-yellow); border: 4px solid var(--color-black);
-  border-radius: 50%; cursor: pointer;
-  box-shadow: 0 0 15px rgba(245,216,10,0.4);
-  transition: var(--transition);
+  -webkit-appearance: none;
+  width: 65px;
+  height: 32px;
+  margin-top: -13px;
+  border: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 50'%3E%3Cpath d='M10 35 L5 35 L5 30 Q5 20 15 18 L35 15 Q45 5 65 5 L85 8 Q105 10 115 25 L115 35 L105 35' fill='%23F5D80A' stroke='%23000' stroke-width='3'/%3E%3Cpath d='M40 15 Q50 7 65 7 L80 10 Q90 12 95 20' fill='none' stroke='%23000' stroke-width='2'/%3E%3Cpath d='M45 15 L85 15 L90 22 L40 22 Z' fill='%23111'/%3E%3Ccircle cx='30' cy='35' r='12' fill='%23111' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='30' cy='35' r='6' fill='%23444'/%3E%3Ccircle cx='90' cy='35' r='12' fill='%23111' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='90' cy='35' r='6' fill='%23444'/%3E%3Cpath d='M110 22 L115 22 L115 28 L110 28 Z' fill='white' stroke='%23000' stroke-width='1'/%3E%3Cpath d='M5 22 L10 22 L10 28 L5 28 Z' fill='red' stroke='%23000' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  cursor: pointer;
+  transition: transform 0.2s;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.7));
 }
 
-.sim-slider::-webkit-slider-thumb:hover { transform: scale(1.1); box-shadow: 0 0 20px rgba(245,216,10,0.6); }
+.sim-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.8));
+}
 
-/* Firefox Sliders */
+/* Firefox */
 .sim-slider::-moz-range-thumb {
-  width: 18px; height: 18px;
-  background: var(--color-yellow); border: 2px solid var(--color-black);
-  border-radius: 50%; cursor: pointer;
-  box-shadow: 0 0 15px rgba(245,216,10,0.4);
+  width: 65px;
+  height: 32px;
+  border: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 50'%3E%3Cpath d='M10 35 L5 35 L5 30 Q5 20 15 18 L35 15 Q45 5 65 5 L85 8 Q105 10 115 25 L115 35 L105 35' fill='%23F5D80A' stroke='%23000' stroke-width='3'/%3E%3Cpath d='M40 15 Q50 7 65 7 L80 10 Q90 12 95 20' fill='none' stroke='%23000' stroke-width='2'/%3E%3Cpath d='M45 15 L85 15 L90 22 L40 22 Z' fill='%23111'/%3E%3Ccircle cx='30' cy='35' r='12' fill='%23111' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='30' cy='35' r='6' fill='%23444'/%3E%3Ccircle cx='90' cy='35' r='12' fill='%23111' stroke='%23000' stroke-width='2'/%3E%3Ccircle cx='90' cy='35' r='6' fill='%23444'/%3E%3Cpath d='M110 22 L115 22 L115 28 L110 28 Z' fill='white' stroke='%23000' stroke-width='1'/%3E%3Cpath d='M5 22 L10 22 L10 28 L5 28 Z' fill='red' stroke='%23000' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  cursor: pointer;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.7));
 }
+
 
 .sim-slider::-moz-range-progress {
   background: var(--color-yellow);
@@ -911,4 +930,38 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .sim-error { 
   color: var(--color-danger); font-size: 0.8rem; text-align: center; 
   margin-top: 1rem; padding: 1rem; background: rgba(231,76,60,0.1); border-radius: 12px;
+}
+
+/* ──── USERS PANEL ──── */
+.user-role-badge {
+  background: rgba(245, 216, 10, 0.1);
+  color: var(--color-yellow);
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid rgba(245, 216, 10, 0.2);
+}
+
+#panel-users .admin-table-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  color: var(--color-yellow);
+}
+
+#userForm .form-group {
+    margin-bottom: 1.25rem;
+}
+
+#passHint {
+    background: rgba(0,0,0,0.2);
+    padding: 0.5rem;
+    border-radius: 4px;
+    border-left: 2px solid var(--color-yellow);
+    margin-bottom: 1rem;
 }

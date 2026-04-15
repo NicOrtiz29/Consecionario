@@ -465,9 +465,8 @@ async function initGeneralSimulator() {
   });
 
   try {
-    const apiUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-      ? 'http://localhost:3005/api/alarfin-data' 
-      : 'https://bbruno-api.onrender.com/api/alarfin-data';
+    const apiBase = window.APP_CONFIG?.API_URL || 'http://localhost:3005/api';
+    const apiUrl = `${apiBase}/alarfin-data`;
 
     const resp = await fetch(apiUrl);
     if (!resp.ok) throw new Error('API Offline');

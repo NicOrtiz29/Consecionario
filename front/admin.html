@@ -353,7 +353,7 @@
       </div>
       <div class="login-error" id="loginError" role="alert">
         <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
-        Usuario o contraseña incorrectos.
+        El usuario o la contraseña ingresados no son correctos
       </div>
       <form id="loginForm" novalidate>
         <div class="form-group">
@@ -376,9 +376,6 @@
       </form>
       <div style="text-align:center;margin-top:1.5rem">
         <a href="index.html" style="font-size:.82rem;color:var(--color-gray)">← Volver al sitio público</a>
-      </div>
-      <div style="margin-top:1.25rem;padding:0.75rem;background:rgba(245,216,10,0.05);border:1px solid rgba(245,216,10,0.15);border-radius:var(--border-radius);font-size:.78rem;color:var(--color-gray)">
-        <strong style="color:var(--color-yellow)">Demo:</strong> usuario <code style="color:var(--color-white)">admin</code> · contraseña <code style="color:var(--color-white)">admin2024</code>
       </div>
     </div>
   </div>
@@ -419,6 +416,12 @@
             <i class="fas fa-building" aria-hidden="true"></i> Sucursales
           </button>
           <div class="sidebar-nav-label">Sistema</div>
+          <button class="sidebar-link" data-panel="users" id="sidebarLinkUsers" role="menuitem" style="display:none">
+            <i class="fas fa-user-shield" aria-hidden="true"></i> Usuarios
+          </button>
+          <button class="sidebar-link" data-panel="logs" id="sidebarLinkLogs" role="menuitem" style="display:none">
+            <i class="fas fa-receipt" aria-hidden="true"></i> Auditoría
+          </button>
           <a href="index.html" class="sidebar-link" target="_blank" role="menuitem">
             <i class="fas fa-eye" aria-hidden="true"></i> Ver sitio público
           </a>
@@ -510,10 +513,10 @@
                     <option value="en_revision">En revisión</option>
                   </select>
                   <div style="display:flex;gap:.5rem">
-                    <button class="btn btn-outline btn-sm" onclick="exportVehiclesToExcel()" title="Exportar stock / Descargar planilla">
+                    <button class="btn btn-outline btn-sm" id="btnExportExcel" onclick="exportVehiclesToExcel()" title="Exportar stock / Descargar planilla">
                       <i class="fas fa-download" aria-hidden="true"></i> Exportar
                     </button>
-                    <button class="btn btn-outline btn-sm" onclick="$('#excelInput').click()" title="Importar desde Excel">
+                    <button class="btn btn-outline btn-sm" id="btnImportExcel" onclick="$('#excelInput').click()" title="Importar desde Excel">
                       <i class="fas fa-upload" aria-hidden="true"></i> Importar
                     </button>
                     <input type="file" id="excelInput" style="display:none" accept=".xlsx, .xls, .csv" onchange="handleExcelImport(event)">
@@ -605,6 +608,68 @@
                 </button>
               </div>
               <div id="branchesList" style="padding:1rem"></div>
+            </div>
+          </div>
+
+          <!-- ========== USERS ========== -->
+          <div class="admin-panel" id="panel-users">
+            <div class="admin-table-wrapper">
+              <div class="admin-table-header">
+                <div class="admin-table-title">
+                  <i class="fas fa-user-shield" aria-hidden="true"></i>
+                  Gestión de Usuarios
+                </div>
+                <button class="btn btn-primary btn-sm" id="btnNewUser">
+                  <i class="fas fa-plus" aria-hidden="true"></i> Nuevo usuario
+                </button>
+              </div>
+              <div style="overflow-x:auto">
+                <table aria-label="Lista de usuarios">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Nombre</th>
+                      <th>Rol</th>
+                      <th>Estado</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="usersTableBody">
+                    <tr><td colspan="5" class="table-empty"><i class="fas fa-spinner fa-spin"></i><br>Cargando...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- ========== AUDIT LOGS ========== -->
+          <div class="admin-panel" id="panel-logs">
+            <div class="admin-table-wrapper">
+              <div class="admin-table-header">
+                <div class="admin-table-title">
+                  <i class="fas fa-history" aria-hidden="true"></i>
+                  Registro de Auditoría
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="loadLogs()">
+                  <i class="fas fa-sync" aria-hidden="true"></i> Actualizar
+                </button>
+              </div>
+              <div style="overflow-x:auto">
+                <table aria-label="Logs de auditoría">
+                  <thead>
+                    <tr>
+                      <th style="min-width:140px">Fecha</th>
+                      <th>Usuario</th>
+                      <th>Acción</th>
+                      <th>Tabla</th>
+                      <th>Detalles</th>
+                    </tr>
+                  </thead>
+                  <tbody id="logsTableBody">
+                    <tr><td colspan="5" class="table-empty">Cargando logs...</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
@@ -838,6 +903,63 @@
   </div>
 
   <!-- ============================================================
+       MODAL: Usuario
+       ============================================================ -->
+  <div class="modal-backdrop" id="userModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+    <div class="modal" style="max-width:500px">
+      <div class="modal-header">
+        <h3 class="modal-title" id="userModalTitle">Usuario</h3>
+        <button class="modal-close" onclick="closeModal('userModal')" aria-label="Cerrar">
+          <i class="fas fa-xmark" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="userForm" novalidate onsubmit="event.preventDefault();">
+          <input type="hidden" id="ufId">
+          <div class="form-group">
+            <label class="form-label" for="ufUsername">Nombre de usuario (Login)</label>
+            <input type="text" id="ufUsername" class="form-control" placeholder="Ej: jortiz" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ufFullName">Nombre completo</label>
+            <input type="text" id="ufFullName" class="form-control" placeholder="Ej: Juan Ortiz" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ufRole">Rol</label>
+            <select id="ufRole" class="form-control" required>
+              <option value="administrador">Administrador</option>
+              <option value="editor">Editor</option>
+              <option value="vendedor">Vendedor</option>
+              <option value="visualizador">Visualizador</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ufPassword">Contraseña</label>
+            <div style="display:flex;gap:.5rem">
+              <input type="text" id="ufPassword" class="form-control" placeholder="Nueva contraseña o dejar vacío para no cambiar">
+              <button type="button" class="btn btn-outline btn-sm" onclick="generateRandomPass()" title="Generar contraseña">
+                <i class="fas fa-dice" aria-hidden="true"></i>
+              </button>
+            </div>
+            <p style="font-size:.7rem;color:var(--color-gray);margin-top:.4rem" id="passHint">Al crear un usuario, la contraseña es obligatoria.</p>
+          </div>
+          <div class="form-group">
+             <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
+                <input type="checkbox" id="ufActive" checked style="width:18px;height:18px;accent-color:var(--color-yellow)">
+                <span>Usuario activo / Habilitado</span>
+             </label>
+          </div>
+          <div style="margin-top:2rem">
+            <button type="button" class="btn btn-primary" id="btnSaveUser" style="width:100%">
+              <i class="fas fa-floppy-disk" aria-hidden="true"></i> Guardar usuario
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
        MODAL: Mantenimiento
        ============================================================ -->
   <div class="modal-backdrop" id="maintenanceModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="maintModalTitle">
@@ -995,6 +1117,26 @@
         <button class="btn btn-ghost" onclick="closeModal('deleteModal')">Cancelar</button>
         <button class="btn btn-danger" id="btnConfirmDelete">
           <i class="fas fa-trash" aria-hidden="true"></i> Eliminar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================
+       MODAL: Error de Login (Seguridad)
+       ============================================================ -->
+  <div class="modal-backdrop" id="loginErrorModal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="loginErrorTitle">
+    <div class="modal" style="max-width:400px; text-align:center">
+      <div class="modal-body" style="padding:2.5rem 2rem">
+        <div style="width:60px; height:60px; background:rgba(231,76,60,0.1); border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 1.5rem">
+          <i class="fas fa-shield-halved" style="color:var(--color-danger); font-size:1.8rem"></i>
+        </div>
+        <h3 id="loginErrorTitle" style="font-family:var(--font-display); font-size:1.4rem; margin-bottom:1rem">Acceso Denegado</h3>
+        <p style="color:var(--color-gray-light); line-height:1.6; margin-bottom:2rem">
+          El usuario o la contraseña ingresados no son correctos.
+        </p>
+        <button class="btn btn-primary" onclick="closeModal('loginErrorModal')" style="width:100%">
+          Reintentar
         </button>
       </div>
     </div>
