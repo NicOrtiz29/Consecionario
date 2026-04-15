@@ -155,7 +155,7 @@ let allVehicles = [];
 let filteredVehicles = [];
 let branchesMap = {};
 let alarfinData = null;
-let genSimCuotas = 36;
+let genSimCuotas = 12;
 
 // ============================================================
 // VEHICLE CARD RENDERING

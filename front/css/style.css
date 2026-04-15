@@ -872,7 +872,7 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 }
 
 .cuotas-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem;
 }
 
 .cuota-btn {

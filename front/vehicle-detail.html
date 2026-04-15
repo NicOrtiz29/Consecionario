@@ -272,10 +272,16 @@
                   <div class="sim-field">
                     <label class="sim-label"><span>Plazo en cuotas fijas</span></label>
                     <div class="cuotas-grid" id="simCuotasGrid">
-                      <button class="cuota-btn" data-cuotas="12" aria-label="12 cuotas">12</button>
-                      <button class="cuota-btn" data-cuotas="24" aria-label="24 cuotas">24</button>
-                      <button class="cuota-btn active" data-cuotas="36" aria-label="36 cuotas">36</button>
-                      <button class="cuota-btn" data-cuotas="48" aria-label="48 cuotas">48</button>
+                      <button class="cuota-btn" data-cuotas="2" aria-label="2 cuotas">2</button>
+                      <button class="cuota-btn" data-cuotas="3" aria-label="3 cuotas">3</button>
+                      <button class="cuota-btn" data-cuotas="4" aria-label="4 cuotas">4</button>
+                      <button class="cuota-btn" data-cuotas="5" aria-label="5 cuotas">5</button>
+                      <button class="cuota-btn" data-cuotas="6" aria-label="6 cuotas">6</button>
+                      <button class="cuota-btn" data-cuotas="7" aria-label="7 cuotas">7</button>
+                      <button class="cuota-btn" data-cuotas="8" aria-label="8 cuotas">8</button>
+                      <button class="cuota-btn" data-cuotas="9" aria-label="9 cuotas">9</button>
+                      <button class="cuota-btn" data-cuotas="10" aria-label="10 cuotas">10</button>
+                      <button class="cuota-btn active" data-cuotas="12" aria-label="12 cuotas">12</button>
                     </div>
                   </div>
 
@@ -676,7 +682,7 @@
 
   // ── Financing Simulator Logic ──
   let alarfinData = null;
-  let selectedCuotas = 36;
+  let selectedCuotas = 12;
 
   async function initSimulator() {
     if (!vehicle || !vehicle.price) return;
