@@ -5,6 +5,6 @@
   directory = "netlify/functions"
 
 [[redirects]]
-  from = "/tables/*"
+  from = "/api/*"
   to = "/.netlify/functions/api/:splat"
   status = 200

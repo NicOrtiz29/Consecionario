@@ -1,6 +1,9 @@
 /**
- * Netlify Function: Mock API /tables/ (v3)
+ * Netlify Function: API Handler (v3.1)
  * ========================================
+ * Supports:
+ * - /api/alarfin-data (Proxy for simulator)
+ * - /api/tables/* (Mock data for now, port to Supabase later if needed)
  */
 
 const MOCK_DATA = {
@@ -11,13 +14,7 @@ const MOCK_DATA = {
       transmission: 'automatica', doors: 5, is_featured: true, 
       photos: [
         'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=800&q=80',
-        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80',
-        'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?w=800&q=80',
-        'https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=800&q=80',
-        'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=800&q=80',
-        'https://images.unsplash.com/photo-1553440569-bcc63803a83d?w=800&q=80',
-        'https://images.unsplash.com/photo-1469285994282-454ceb49e63c?w=800&q=80',
-        'https://images.unsplash.com/photo-1583121274602-3e2820c69888?w=800&q=80'
+        'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80'
       ]
     },
     {
@@ -25,29 +22,7 @@ const MOCK_DATA = {
       mileage: 22000, price: 29000000, status: 'disponible', fuel_type: 'nafta',
       transmission: 'cvt', doors: 4, is_featured: true, 
       photos: [
-        'https://images.unsplash.com/photo-1542362567-b05260b60c44?w=800&q=80',
-        'https://images.unsplash.com/photo-1621007947382-bb3c3994e3fb?w=800&q=80',
-        'https://images.unsplash.com/photo-1590362891175-30693a105021?w=800&q=80',
-        'https://images.unsplash.com/photo-1619682817481-e994891cd1f5?w=800&q=80',
-        'https://images.unsplash.com/photo-1620216447814-1a22123f1a07?w=800&q=80',
-        'https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=800&q=80',
-        'https://images.unsplash.com/photo-1624021289123-5e917d52def7?w=800&q=80',
-        'https://images.unsplash.com/photo-1533106497176-45ae19e68ba2?w=800&q=80'
-      ]
-    },
-    {
-      id: 'v3', brand: 'Volkswagen', model: 'Amarok', year: 2020, version: 'Highline V6', color: 'Negro',
-      mileage: 65000, price: 42000000, status: 'disponible', fuel_type: 'diesel',
-      transmission: 'automatica', doors: 4, is_featured: false, 
-      photos: [
-        'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=800&q=80',
-        'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&q=80',
-        'https://images.unsplash.com/photo-1525609004556-c46c7d6cf048?w=800&q=80',
-        'https://images.unsplash.com/photo-1502877338535-766e1452684a?w=800&q=80',
-        'https://images.unsplash.com/photo-1494905998402-395d579af36f?w=800&q=80',
-        'https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=800&q=80',
-        'https://images.unsplash.com/photo-1571434199516-7fc43a3d58d8?w=800&q=80',
-        'https://images.unsplash.com/photo-1541443131876-44b03de101c5?w=800&q=80'
+        'https://images.unsplash.com/photo-1542362567-b05260b60c44?w=800&q=80'
       ]
     }
   ],
@@ -63,21 +38,79 @@ const MOCK_DATA = {
 
 exports.handler = async (event, context) => {
   const { path, httpMethod } = event;
-  const cleanPath = path.replace(/^\/\.netlify\/functions\/api/, '').replace(/^\/tables/, '');
+  
+  // Normalize path to get the endpoint relative to /api or /tables
+  let relativePath = path;
+  if (relativePath.startsWith('/.netlify/functions/api')) {
+    relativePath = relativePath.substring('/.netlify/functions/api'.length);
+  } else if (relativePath.startsWith('/api')) {
+    relativePath = relativePath.substring('/api'.length);
+  }
+
+  const headers = { 
+    'Access-Control-Allow-Origin': '*', 
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+    'Content-Type': 'application/json' 
+  };
+
+  if (httpMethod === 'OPTIONS') {
+    return { statusCode: 204, headers, body: '' };
+  }
+
+  // 1. Alarfin Proxy endpoint
+  if (relativePath === '/alarfin-data' && httpMethod === 'GET') {
+    try {
+      const response = await fetch('https://simulador.alarfin.com.ar/datos');
+      if (!response.ok) throw new Error('Alarfin API response not OK');
+      const data = await response.json();
+      return { 
+        statusCode: 200, 
+        headers, 
+        body: JSON.stringify(data) 
+      };
+    } catch (err) {
+      console.error('[API] Error Alarfin proxy:', err.message);
+      return { 
+        statusCode: 502, 
+        headers, 
+        body: JSON.stringify({ error: 'Error al conectar con Alarfin', details: err.message }) 
+      };
+    }
+  }
+
+  // 2. Tables logic (Mock)
+  const cleanPath = relativePath.replace(/^\/tables/, '');
   const parts = cleanPath.split('/').filter(p => p);
   const table = parts[0];
   const recordId = parts[1];
-
-  const headers = { 'Access-Control-Allow-Origin': '*', 'Content-Type': 'application/json' };
 
   if (httpMethod === 'GET') {
     if (recordId && MOCK_DATA[table]) {
       const item = MOCK_DATA[table].find(x => x.id === recordId);
       return { statusCode: 200, headers, body: JSON.stringify(item || {}) };
     }
-    const data = MOCK_DATA[table] || [];
-    return { statusCode: 200, headers, body: JSON.stringify({ data }) };
+    if (table && MOCK_DATA[table]) {
+      return { statusCode: 200, headers, body: JSON.stringify(MOCK_DATA[table]) };
+    }
+    
+    // Default if no table matched but it's a GET
+    if (!table) {
+       return { statusCode: 200, headers, body: JSON.stringify({ status: 'API Online', version: '3.1.0' }) };
+    }
   }
 
-  return { statusCode: 200, headers, body: JSON.stringify({ status: 'ok' }) };
+  // 3. Auth Mock
+  if (relativePath === '/auth/login' && httpMethod === 'POST') {
+     return { 
+       statusCode: 200, 
+       headers, 
+       body: JSON.stringify({ 
+         user: MOCK_DATA.admin_users[0], 
+         token: 'mock_token_' + Date.now() 
+       }) 
+     };
+  }
+
+  return { statusCode: 404, headers, body: JSON.stringify({ error: 'Endpoint not found', path: relativePath }) };
 };

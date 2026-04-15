@@ -360,7 +360,8 @@ window.extractIGImages = async function() {
   showToast('Extrayendo...', 'Buscando fotos en Instagram...', 'info');
 
   try {
-    const res = await fetch(`http://localhost:3005/api/ig-extract?shortcode=${shortcode}`);
+    const apiBase = window.APP_CONFIG?.API_URL || 'http://localhost:3005/api';
+    const res = await fetch(`${apiBase}/ig-extract?shortcode=${shortcode}`);
     const data = await res.json();
 
     if (data.images && data.images.length > 0) {

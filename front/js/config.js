@@ -19,7 +19,9 @@ window.APP_CONFIG = {
   },
 
   // API Backend
-  API_URL: 'http://localhost:3005/api',
+  API_URL: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:3005/api'
+    : '/api',
 
   // Versión del frontend
   VERSION: '3.1.0-secure-auth'
