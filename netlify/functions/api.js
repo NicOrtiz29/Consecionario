@@ -170,18 +170,32 @@ exports.handler = async (event) => {
     }
 
     const userId = rel.replace('/admin/users', '').replace(/^\//, '') || null;
+    const isSuperRequester = userRole === 'superadmin';
 
     try {
       if (httpMethod === 'GET') {
-        const users = await sb(
+        let users = await sb(
           'admin_users?select=id,username,full_name,role,is_active,created_at&order=created_at.asc',
           { method: 'GET', prefer: '' }
         );
+        
+        // Filter out superadmins if requester is not a superadmin
+        if (!isSuperRequester) {
+          users = users.filter(u => String(u.role).toLowerCase() !== 'superadmin');
+        }
+        
         return json(200, users);
       }
 
       if (httpMethod === 'POST') {
         const { username, full_name, role, is_active, password } = body;
+        const targetRole = String(role || '').toLowerCase();
+
+        // Restriction: Only superadmins can create admins/superadmins
+        if (!isSuperRequester && (targetRole === 'superadmin' || targetRole === 'administrador')) {
+           return json(403, { error: 'No tenés permisos para crear usuarios con este rol' });
+        }
+
         if (!username || !password) return json(400, { error: 'username y password son requeridos' });
 
         const newUser = await sb('admin_users', {
@@ -199,6 +213,13 @@ exports.handler = async (event) => {
       }
 
       if (httpMethod === 'PATCH' && userId) {
+        const targetRole = String(body.role || '').toLowerCase();
+        
+        // Restriction: Only superadmins can promote to admin/superadmin
+        if (!isSuperRequester && (targetRole === 'superadmin' || targetRole === 'administrador')) {
+          return json(403, { error: 'No tenés permisos para asignar este rol' });
+        }
+
         const update = {};
         if (body.full_name !== undefined) update.full_name = body.full_name;
         if (body.role !== undefined) update.role = body.role;
@@ -214,6 +235,14 @@ exports.handler = async (event) => {
       }
 
       if (httpMethod === 'DELETE' && userId) {
+        // Validation: Cannot delete a superadmin if not superadmin
+        if (!isSuperRequester) {
+          const target = await sb(`admin_users?id=eq.${userId}&select=role`, { method: 'GET', prefer: '' });
+          if (target && target[0] && String(target[0].role).toLowerCase() === 'superadmin') {
+            return json(403, { error: 'No podés eliminar a un Superadmin' });
+          }
+        }
+
         await sb(`admin_users?id=eq.${userId}`, { method: 'DELETE', prefer: '' });
         return json(200, { success: true });
       }

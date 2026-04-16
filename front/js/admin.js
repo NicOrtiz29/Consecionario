@@ -1204,13 +1204,21 @@ async function loadBranches() {
 function renderUsersTable(users) {
   const tbody = $('#usersTableBody');
   if (!tbody) return;
-  if (!users.length) {
+
+  // SECURITY HIERARCHY: Non-superadmins cannot see superadmins
+  const isSuper = String(currentUser.role).toLowerCase() === 'superadmin';
+  const filteredUsers = users.filter(u => {
+    if (!isSuper && String(u.role).toLowerCase() === 'superadmin') return false;
+    return true;
+  });
+
+  if (!filteredUsers.length) {
     tbody.innerHTML = '<tr><td colspan="5" class="table-empty"><i class="fas fa-users" aria-hidden="true"></i><br>No hay usuarios registrados</td></tr>';
     return;
   }
 
   // SECURITY: Escape all user-provided data to prevent XSS
-  tbody.innerHTML = users.map(u => {
+  tbody.innerHTML = filteredUsers.map(u => {
     const safeUsername = escapeHtml(u.username);
     const safeName = escapeHtml(u.full_name) || '—';
     const safeRole = escapeHtml(u.role);
@@ -1255,6 +1263,25 @@ function openUserModal(id = null) {
   $('#ufId').value = id || '';
   $('#passHint').textContent = id ? 'Ingresa una contraseña solo si quieres cambiarla.' : 'La contraseña es obligatoria para nuevos usuarios.';
   
+  const isSuper = String(currentUser.role).toLowerCase() === 'superadmin';
+  
+  // Restriction: Only superadmins can assign admin roles
+  const roleSelect = $('#ufRole');
+  if (roleSelect) {
+    const opts = roleSelect.querySelectorAll('option');
+    opts.forEach(opt => {
+      const val = opt.value.toLowerCase();
+      if (val === 'superadmin') {
+        opt.style.display = isSuper ? 'block' : 'none';
+        opt.disabled = !isSuper;
+      }
+      if (val === 'administrador') {
+        opt.style.display = isSuper ? 'block' : 'none';
+        opt.disabled = !isSuper;
+      }
+    });
+  }
+
   if (id) {
     const u = allUsers.find(x => x.id === id);
     if (u) {
