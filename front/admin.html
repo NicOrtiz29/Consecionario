@@ -852,7 +852,7 @@
                 <button type="button" class="btn btn-ghost" id="btnExtractIG" onclick="extractIGImages()" title="Extraer todas las fotos de este post de Instagram" style="color:var(--color-info); border-color:rgba(52,152,219,0.3)">
                   <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i>
                 </button>
-                <input type="file" id="vfPhotoFile" accept="image/*" style="display:none" onchange="handleLocalPhoto(event)">
+                <input type="file" id="vfPhotoFile" accept="image/*,.zip" multiple style="display:none" onchange="handleLocalPhoto(event)">
                 <button type="button" class="btn btn-primary" onclick="document.getElementById('vfPhotoFile').click()" title="Subir desde PC">
                   <i class="fas fa-upload" aria-hidden="true"></i> PC
                 </button>
@@ -1146,8 +1146,9 @@
   <!-- TOAST -->
   <div class="toast-container" id="toastContainer" aria-live="assertive"></div>
 
-  <!-- SheetJS for Excel -->
+  <!-- SheetJS & JSZip -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="js/config.js"></script>
   <script src="js/supabase-client.js"></script>
   <script src="js/admin.js"></script>

@@ -392,28 +392,90 @@ window.extractIGImages = async function() {
   }
 };
 
-window.handleLocalPhoto = function(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  if (vehiclePhotos.length >= 8) {
-    showToast('Límite alcanzado', 'Podés cargar hasta 8 fotos por vehículo.', 'warning');
-    return;
+window.handleLocalPhoto = async function(event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+
+  for (const file of files) {
+    if (vehiclePhotos.length >= 8) {
+      showToast('Límite alcanzado', 'Podés cargar hasta 8 fotos por vehículo.', 'warning');
+      break;
+    }
+
+    if (file.name.toLowerCase().endsWith('.zip')) {
+      await processZipFile(file);
+    } else if (file.type.startsWith('image/')) {
+      await processImageFile(file);
+    }
   }
-  
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    vehiclePhotos.push(e.target.result);
-    renderPhotoPreviews();
-    showToast('Foto agregada', 'Imagen cargada desde la PC.', 'success');
-  };
-  reader.onerror = function() {
-    showToast('Error', 'No se pudo leer la imagen de la PC.', 'error');
-  };
-  reader.readAsDataURL(file);
   
   // Limpiar el input para permitir subir la misma u otra de nuevo
   event.target.value = '';
 };
+
+// Helper para convertir Blob a Base64
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function processImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      if (vehiclePhotos.length < 8) {
+        vehiclePhotos.push(e.target.result);
+        renderPhotoPreviews();
+        showToast('Foto agregada', `Imagen "${file.name}" cargada.`, 'success');
+      }
+      resolve();
+    };
+    reader.onerror = () => {
+      showToast('Error', `No se pudo leer la imagen "${file.name}".`, 'error');
+      resolve(); // Continuamos con la siguiente
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function processZipFile(file) {
+  if (typeof JSZip === 'undefined') {
+    showToast('Error', 'La librería de compresión no está disponible.', 'error');
+    return;
+  }
+
+  showToast('Procesando ZIP...', 'Extrayendo imágenes...', 'info');
+  try {
+    const zip = await JSZip.loadAsync(file);
+    const imageFiles = Object.values(zip.files).filter(f => !f.dir && /\.(jpe?g|png|webp|gif)$/i.test(f.name));
+    
+    if (imageFiles.length === 0) {
+      showToast('ZIP vacío', 'No se encontraron imágenes válidas en el ZIP.', 'warning');
+      return;
+    }
+
+    let addedCount = 0;
+    for (const imgFile of imageFiles) {
+      if (vehiclePhotos.length >= 8) break;
+      
+      const blob = await imgFile.async('blob');
+      const base64 = await blobToBase64(blob);
+      vehiclePhotos.push(base64);
+      addedCount++;
+    }
+    
+    renderPhotoPreviews();
+    showToast('ZIP procesado', `Se extrajeron ${addedCount} imágenes con éxito.`, 'success');
+  } catch (err) {
+    console.error('Error al procesar ZIP:', err);
+    showToast('Error ZIP', 'No se pudo abrir el archivo ZIP o está dañado.', 'error');
+  }
+}
+
 
 window.removePhoto = function(idx) {
   vehiclePhotos.splice(idx, 1);
