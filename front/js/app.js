@@ -391,6 +391,11 @@ function applyFilters() {
 
   // Sort
   results = results.sort((a, b) => {
+    // PRIMARY SORT: Featured always first
+    if (a.is_featured && !b.is_featured) return -1;
+    if (!a.is_featured && b.is_featured) return 1;
+
+    // SECONDARY SORT: User selected option (only if both are same featured status)
     switch (sort) {
       case 'price_asc': return (a.price || 0) - (b.price || 0);
       case 'price_desc': return (b.price || 0) - (a.price || 0);
@@ -398,9 +403,8 @@ function applyFilters() {
       case 'mileage_asc': return (a.mileage || 0) - (b.mileage || 0);
       case 'featured':
       default:
-        if (a.is_featured && !b.is_featured) return -1;
-        if (!a.is_featured && b.is_featured) return 1;
-        return 0;
+        // Default tie-breaker: newest first
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
     }
   });
 
