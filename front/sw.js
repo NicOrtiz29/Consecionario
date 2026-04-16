@@ -51,8 +51,8 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        // Cachear solo recursos estáticos propios válidos
-        if (response && response.status === 200 && response.type === 'basic') {
+        // Cachear solo recursos estáticos propios válidos y solo peticiones GET
+        if (event.request.method === 'GET' && response && response.status === 200 && response.type === 'basic') {
           const responseClone = response.clone();
           caches.open(CACHE_NAME).then(cache => {
             cache.put(event.request, responseClone);

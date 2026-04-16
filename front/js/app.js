@@ -73,7 +73,7 @@ function getStatusLabel(status) {
     disponible: { label: 'Disponible', cls: 'badge-success' },
     reservado: { label: 'Reservado', cls: 'badge-warning' },
     vendido: { label: 'Vendido', cls: 'badge-danger' },
-    en_revision: { label: 'En revisión', cls: 'badge-info' }
+    en_revision: { label: 'En mantenimiento', cls: 'badge-info' }
   };
   return map[status] || { label: status, cls: 'badge-info' };
 }
@@ -156,6 +156,12 @@ let filteredVehicles = [];
 let branchesMap = {};
 let alarfinData = null;
 let genSimCuotas = 12;
+
+// Session check for staff
+function getStaffSession() {
+  try { return JSON.parse(localStorage.getItem('bbruno_admin_session')); } catch { return null; }
+}
+const isStaff = !!getStaffSession();
 
 // ============================================================
 // VEHICLE CARD RENDERING
@@ -295,10 +301,18 @@ function applyFilters() {
   const maxYear = parseInt($('#filterMaxYear')?.value) || 9999;
   const fuel = $('#filterFuel')?.value || '';
   const maxPrice = parseInt($('#filterMaxPrice')?.value) || Infinity;
+  const status = $('#filterStatus')?.value || '';
   const sort = $('#filterSort')?.value || 'featured';
 
   let results = allVehicles.filter(v => {
-    if (v.status === 'vendido') return false; // Ocultar vendidos del catálogo público
+    // Si no es staff, solo ver disponibles
+    if (!isStaff) {
+      if (v.status && v.status !== 'disponible') return false;
+    } else {
+      // Si es staff, puede filtrar por estado
+      if (status && v.status !== status) return false;
+    }
+
     if (brand && !(
       (v.brand || '').toLowerCase().includes(brand) ||
       (v.model || '').toLowerCase().includes(brand) ||
@@ -334,7 +348,9 @@ function clearFilters() {
   fields.forEach(sel => { const el = $(sel); if (el) el.value = ''; });
   const fuel = $('#filterFuel'); if (fuel) fuel.value = '';
   const sort = $('#filterSort'); if (sort) sort.value = 'featured';
-  filteredVehicles = allVehicles.filter(v => v.status !== 'vendido');
+  const status = $('#filterStatus'); if (status) status.value = '';
+  
+  filteredVehicles = allVehicles.filter(v => isStaff || !v.status || v.status === 'disponible');
   renderGrid(filteredVehicles);
 }
 
@@ -397,7 +413,14 @@ async function init() {
     (branchesData || []).forEach(b => { branchesMap[b.id] = b; });
 
     allVehicles = vehiclesData || [];
-    filteredVehicles = allVehicles.filter(v => v.status !== 'vendido');
+    
+    // Si es staff, mostrar el filtro de estados
+    if (isStaff) {
+      const group = $('#filterStatusGroup');
+      if (group) group.style.display = 'block';
+    }
+
+    filteredVehicles = allVehicles.filter(v => isStaff || !v.status || v.status === 'disponible');
 
     // Actualizar stat de vehículos
     const statEl = $('#statVehicles');
@@ -424,7 +447,7 @@ async function init() {
   });
 
   // Filtros reactivos en selects
-  $$('#filterFuel,#filterSort').forEach(el => {
+  $$('#filterFuel,#filterSort,#filterStatus').forEach(el => {
     el?.addEventListener('change', applyFilters);
   });
 

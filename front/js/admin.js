@@ -29,7 +29,7 @@ function formatDate(d) {
   return isNaN(dt) ? d : dt.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 function getStatusLabel(s) {
-  const m = { disponible:{l:'Disponible',c:'badge-success'}, reservado:{l:'Reservado',c:'badge-warning'}, vendido:{l:'Vendido',c:'badge-danger'}, en_revision:{l:'En revisión',c:'badge-info'} };
+  const m = { disponible:{l:'Disponible',c:'badge-success'}, reservado:{l:'Reservado',c:'badge-warning'}, vendido:{l:'Vendido',c:'badge-danger'}, en_revision:{l:'En mantenimiento',c:'badge-info'} };
   return m[s] || {l:s,c:'badge-info'};
 }
 function getLeadStatusLabel(s) {
@@ -468,6 +468,7 @@ function renderDashboard() {
   const avail = allVehicles.filter(v => v.status === 'disponible').length;
   const reserved = allVehicles.filter(v => v.status === 'reservado').length;
   const sold = allVehicles.filter(v => v.status === 'vendido').length;
+  const maint = allVehicles.filter(v => v.status === 'en_revision').length;
   const newLeads = allLeads.filter(l => l.status === 'nuevo').length;
 
   const sg = $('#statsGrid');
@@ -490,12 +491,16 @@ function renderDashboard() {
         <div><div class="stat-card-value">${sold}</div><div class="stat-card-label">Vendidos</div></div>
       </div>
       <div class="stat-card">
+        <div class="stat-card-icon blue"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i></div>
+        <div><div class="stat-card-value">${maint}</div><div class="stat-card-label">En mantenimiento</div></div>
+      </div>
+      <div class="stat-card">
         <div class="stat-card-icon blue"><i class="fas fa-envelope" aria-hidden="true"></i></div>
         <div><div class="stat-card-value">${newLeads}</div><div class="stat-card-label">Consultas nuevas</div></div>
       </div>
       <div class="stat-card">
-        <div class="stat-card-icon yellow"><i class="fas fa-screwdriver-wrench" aria-hidden="true"></i></div>
-        <div><div class="stat-card-value">${allMaintenance.length}</div><div class="stat-card-label">Registros de servicio</div></div>
+        <div class="stat-card-icon yellow"><i class="fas fa-wrench" aria-hidden="true"></i></div>
+        <div><div class="stat-card-value">${allMaintenance.length}</div><div class="stat-card-label">Servicios realizados</div></div>
       </div>
     `;
   }
@@ -511,7 +516,7 @@ function renderDashboard() {
         const photo = Array.isArray(v.photos) && v.photos[0] ? v.photos[0] : 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=80&q=60';
         return `
           <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.04)">
-            <img src="${photo}" alt="" style="width:56px;height:38px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.src='https://via.placeholder.com/56x38/2B2B2B/888?text=BB'">
+            <img src="${photo}" alt="" style="width:56px;height:38px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2256%22%20height%3D%2238%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%232B2B2B%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Arial%22%20font-size%3D%2210%22%20fill%3D%22%23888%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EBB%3C%2Ftext%3E%3C%2Fsvg%3E'">
             <div style="flex:1;min-width:0">
               <div style="font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.year} ${v.brand} ${v.model}</div>
               <div style="font-size:.75rem;color:var(--color-gray)">${formatCurrency(v.price)}</div>
@@ -563,7 +568,7 @@ function renderVehiclesTable(vehicles) {
       <tr>
         <td>
           <img class="table-vehicle-thumb" src="${photo}" alt="" 
-            onerror="this.src='https://via.placeholder.com/72x48/2B2B2B/888?text=BB'">
+            onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2272%22%20height%3D%2248%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%232B2B2B%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Arial%22%20font-size%3D%2212%22%20fill%3D%22%23888%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EBB%3C%2Ftext%3E%3C%2Fsvg%3E'">
         </td>
         <td>
           <div class="table-vehicle-name">

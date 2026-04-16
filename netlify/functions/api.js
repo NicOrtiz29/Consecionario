@@ -100,7 +100,7 @@ exports.handler = async (event, context) => {
     }
   }
 
-  // 3. Auth Mock
+  // 3. Auth
   if (relativePath === '/auth/login' && httpMethod === 'POST') {
      return { 
        statusCode: 200, 
@@ -110,6 +110,16 @@ exports.handler = async (event, context) => {
          token: 'mock_token_' + Date.now() 
        }) 
      };
+  }
+
+  if (relativePath === '/auth/verify') {
+    // For now, return the mock user if any token is present (Mock behavior)
+    // In production, this would verify the JWT.
+    return {
+      statusCode: 200,
+      headers,
+      body: JSON.stringify(MOCK_DATA.admin_users[0])
+    };
   }
 
   return { statusCode: 404, headers, body: JSON.stringify({ error: 'Endpoint not found', path: relativePath }) };

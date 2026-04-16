@@ -400,8 +400,9 @@
 
   // ── Auth Check (for patent visibility) ──
   function getSession() {
-    try { return JSON.parse(sessionStorage.getItem('bbruno_admin_session')); } catch { return null; }
+    try { return JSON.parse(localStorage.getItem('bbruno_admin_session')); } catch { return null; }
   }
+  const isStaff = !!getSession();
 
   // ── State ──
   let vehicle = null;
@@ -511,6 +512,11 @@
     try {
       vehicle = await db.selectById('vehicles', id);
       if (!vehicle) throw new Error('not found');
+
+      // Si no es disponible y no es staff, no dejar ver
+      if (!isStaff && vehicle.status && vehicle.status !== 'disponible') {
+        throw new Error('not available');
+      }
 
       document.title = `${vehicle.year} ${vehicle.brand} ${vehicle.model} | BBruno Automotores`;
 
