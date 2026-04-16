@@ -51,14 +51,20 @@ const authenticateToken = (req, res, next) => {
 };
 
 // ─── AUDITORÍA ───
-async function logAction(user, action, table, targetId, details = {}) {
+async function logAction(user, action, table, targetId, details = {}, targetName = null) {
   try {
+    // Si no tenemos nombre, intentamos sacarlo de details si es un vehículo
+    if (!targetName && table === 'vehicles' && details) {
+      targetName = details.patent || (details.brand ? `${details.brand} ${details.model}` : null);
+    }
+
     await supabase.from('audit_logs').insert([{
       user_id: user.id,
       username: user.username,
       action: action, // CREATE, UPDATE, DELETE
       target_table: table,
-      target_id: targetId,
+      target_id: String(targetId),
+      target_name: targetName,
       details: details,
       created_at: new Date().toISOString()
     }]);

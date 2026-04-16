@@ -66,9 +66,40 @@ function getTokenFromEvent(event) {
   return null;
 }
 
+// ── Audit: Recording actions ──────────────────────────────────────────────────
+async function logAction(payload, action, table, targetId, details = {}, targetName = null) {
+  try {
+    if (!payload?.username) return;
+    
+    // Auto-detección de nombre para vehículos e identificación básica
+    if (!targetName && table === 'vehicles' && details) {
+       targetName = details.patent || (details.brand ? `${details.brand} ${details.model}` : null);
+    }
+
+    await sb('audit_logs', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: payload.id,
+        username: payload.username,
+        action: action,
+        target_table: table,
+        target_id: String(targetId),
+        target_name: targetName,
+        details: details,
+        created_at: new Date().toISOString()
+      }),
+      prefer: ''
+    });
+  } catch (err) {
+    console.warn('[Audit] Falló el registro:', err.message);
+  }
+}
+
 // ── Main handler ─────────────────────────────────────────────────────────────
 exports.handler = async (event) => {
   const { httpMethod, path: rawPath, body: rawBody } = event;
+  const token = getTokenFromEvent(event);
+  const tokenPayload = parseToken(token);
 
   // CORS preflight
   if (httpMethod === 'OPTIONS') {
@@ -301,14 +332,18 @@ exports.handler = async (event) => {
           prefer: 'return=representation',
           headers: { 'Prefer': 'return=representation,resolution=merge-duplicates' }
         });
-        return json(200, Array.isArray(result) ? result[0] : result);
+        const finalData = Array.isArray(result) ? result[0] : result;
+        await logAction(tokenPayload, 'UPDATE/UPSERT', table, finalData.id || body.patent, body);
+        return json(200, finalData);
       }
       const result = await sb(table, {
         method: 'POST',
         body: JSON.stringify(body),
         prefer: 'return=representation'
       });
-      return json(201, Array.isArray(result) ? result[0] : result);
+      const finalData = Array.isArray(result) ? result[0] : result;
+      await logAction(tokenPayload, 'CREATE', table, finalData.id, body);
+      return json(201, finalData);
     }
 
     if (httpMethod === 'PATCH' && recordId) {
@@ -317,11 +352,14 @@ exports.handler = async (event) => {
         body: JSON.stringify(body),
         prefer: 'return=representation'
       });
-      return json(200, Array.isArray(result) ? result[0] : result);
+      const finalData = Array.isArray(result) ? result[0] : result;
+      await logAction(tokenPayload, 'UPDATE', table, recordId, body);
+      return json(200, finalData);
     }
 
     if (httpMethod === 'DELETE' && recordId) {
       await sb(`${table}?id=eq.${recordId}`, { method: 'DELETE', prefer: '' });
+      await logAction(tokenPayload, 'DELETE', table, recordId);
       return json(200, { success: true });
     }
 

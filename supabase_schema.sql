@@ -105,10 +105,26 @@ CREATE POLICY "allow_all_branches" ON branches FOR ALL USING (true) WITH CHECK (
 CREATE POLICY "allow_all_admin_users" ON admin_users FOR ALL USING (true) WITH CHECK (true);
 
 -- ==================================================
--- Índices
+
+-- 6. Audit logs table
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES admin_users(id),
+  username TEXT,
+  action TEXT, -- CREATE, UPDATE, DELETE
+  target_table TEXT,
+  target_id TEXT,
+  target_name TEXT, -- Patent, Name or Model for easier tracking
+  details JSONB,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Indices
 -- ==================================================
 CREATE INDEX IF NOT EXISTS idx_vehicles_patent ON vehicles(patent);
 CREATE INDEX IF NOT EXISTS idx_vehicles_status ON vehicles(status);
 CREATE INDEX IF NOT EXISTS idx_vehicles_brand ON vehicles(brand);
 CREATE INDEX IF NOT EXISTS idx_maintenance_patent ON maintenance(vehicle_patent);
 CREATE INDEX IF NOT EXISTS idx_leads_patent ON leads(vehicle_patent);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+

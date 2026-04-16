@@ -1466,16 +1466,21 @@ async function loadLogs() {
       if (log.action === 'DELETE') badgeClass = 'badge-danger';
       if (log.action === 'CREATE') badgeClass = 'badge-success';
       
-      const details = JSON.stringify(log.details || {}).substring(0, 100) + (JSON.stringify(log.details).length > 100 ? '...' : '');
+      const cleanDetails = log.details ? Object.entries(log.details)
+        .filter(([k]) => !['photos', 'features', 'description'].includes(k)) // Omitir campos largos
+        .map(([k, v]) => `${k}: ${v}`).join(', ') : '';
 
       return `
         <tr>
           <td style="font-size:0.8rem; color:var(--color-gray-light)">${date}</td>
           <td><span style="font-weight:600">${log.username}</span></td>
           <td><span class="badge ${badgeClass}">${log.action}</span></td>
-          <td><code style="color:var(--color-yellow)">${log.target_table}</code></td>
+          <td>
+            <code style="color:var(--color-yellow)">${log.target_table}</code>
+            ${log.target_name ? `<br><div style="font-size:0.75rem; color:var(--color-gray-light); margin-top:2px">${log.target_name}</div>` : ''}
+          </td>
           <td style="font-size:0.75rem; color:var(--color-gray)" title='${JSON.stringify(log.details)}'>
-            ${details}
+            ${cleanDetails || details}
           </td>
         </tr>
       `;
