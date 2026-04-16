@@ -432,8 +432,12 @@ const panelTitles = {
 };
 
 function isAdminRole(role) {
+  if (!role) return false;
   const roles = window.APP_CONFIG?.ROLES;
-  return role === roles?.SUPERADMIN || role === roles?.ADMIN;
+  const r = String(role).toLowerCase();
+  const superRole = String(roles?.SUPERADMIN || 'superadmin').toLowerCase();
+  const adminRole = String(roles?.ADMIN || 'administrador').toLowerCase();
+  return r === superRole || r === adminRole;
 }
 
 function switchPanel(name) {
@@ -1504,7 +1508,8 @@ function renderRoleBasedUI() {
   const roles = window.APP_CONFIG?.ROLES;
 
   const isAdmin = isAdminRole(role);
-  const isStaff = isAdmin || role === roles.EDITOR;
+  // Staff is anyone with admin/superadmin OR editor role
+  const isStaff = isAdmin || String(role).toLowerCase() === String(roles.EDITOR).toLowerCase() || String(role).toLowerCase() === String(roles.SELLER).toLowerCase();
 
   // Sidebar link: Users only for Admin
   const usersLink = $('#sidebarLinkUsers');
