@@ -392,8 +392,10 @@ function applyFilters() {
   // Sort
   results = results.sort((a, b) => {
     // PRIMARY SORT: Featured always first
-    if (a.is_featured && !b.is_featured) return -1;
-    if (!a.is_featured && b.is_featured) return 1;
+    const featA = !!a.is_featured;
+    const featB = !!b.is_featured;
+    if (featA && !featB) return -1;
+    if (!featA && featB) return 1;
 
     // SECONDARY SORT: User selected option (only if both are same featured status)
     switch (sort) {
@@ -497,7 +499,8 @@ async function init() {
     const statEl = $('#statVehicles');
     if (statEl) statEl.textContent = filteredVehicles.length + '+';
 
-    renderGrid(filteredVehicles);
+    // Aplicar filtros iniciales (esto maneja el orden de destacados y paginado)
+    applyFilters();
   } catch (err) {
     console.error('[BBruno] Error cargando vehículos:', err);
     const grid = $('#vehicleGrid');
