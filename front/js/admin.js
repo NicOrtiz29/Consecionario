@@ -1579,6 +1579,15 @@ async function initAdmin(user) {
   updateClock();
   setInterval(updateClock, 30000);
 
+  // Auto-refresh (cada 30 seg) — Mantiene las consultas y el stock al día
+  setInterval(async () => {
+    try {
+      await Promise.all([loadLeads(), loadVehicles()]);
+    } catch (err) {
+      console.warn('[AutoRefresh] Error al refrescar datos:', err);
+    }
+  }, 30000);
+
   // Load all data from Supabase
   await Promise.all([
     loadVehicles(),
