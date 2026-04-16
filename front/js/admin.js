@@ -431,9 +431,13 @@ const panelTitles = {
   logs: ['Auditoría', 'Registro de movimientos y seguridad'],
 };
 
+function isAdminRole(role) {
+  const roles = window.APP_CONFIG?.ROLES;
+  return role === roles?.SUPERADMIN || role === roles?.ADMIN;
+}
+
 function switchPanel(name) {
-  const isAdmin = currentUser?.role === window.APP_CONFIG?.ROLES.ADMIN;
-  if ((name === 'users' || name === 'logs') && !isAdmin) {
+  if ((name === 'users' || name === 'logs') && !isAdminRole(currentUser?.role)) {
     showToast('Acceso denegado', 'Solo administradores pueden ver esta sección.', 'warning');
     return;
   }
@@ -1233,7 +1237,7 @@ function renderUsersTable(users) {
 }
 
 async function loadUsers() {
-  if (currentUser?.role !== window.APP_CONFIG?.ROLES.ADMIN) return;
+  if (!isAdminRole(currentUser?.role)) return;
   try {
     const users = await apiFetch('/admin/users');
     allUsers = users;
@@ -1499,12 +1503,12 @@ function renderRoleBasedUI() {
   const role = currentUser.role;
   const roles = window.APP_CONFIG?.ROLES;
 
+  const isAdmin = isAdminRole(role);
+  const isStaff = isAdmin || role === roles.EDITOR;
+
   // Sidebar link: Users only for Admin
   const usersLink = $('#sidebarLinkUsers');
-  if (usersLink) usersLink.style.display = (role === roles.ADMIN) ? 'flex' : 'none';
-
-  const isStaff = (role === roles.ADMIN || role === roles.EDITOR);
-  const isAdmin = (role === roles.ADMIN);
+  if (usersLink) usersLink.style.display = isAdmin ? 'flex' : 'none';
 
   $$('#btnNewVehicle, #btnNewMaintenance, #btnNewBranch, #btnExportExcel, #btnImportExcel').forEach(b => { 
     if (b) b.style.display = isStaff ? 'flex' : 'none'; 
@@ -1523,7 +1527,7 @@ function renderRoleBasedUI() {
   if (existingStyle) existingStyle.remove();
 
   let css = '';
-  if (role !== roles.ADMIN && role !== roles.EDITOR) {
+  if (!isAdmin && role !== roles.EDITOR) {
     css += '.btn-danger { display: none !important; } '; // Hide delete
   }
   

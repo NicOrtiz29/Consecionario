@@ -12,6 +12,7 @@ window.APP_CONFIG = {
 
   // Roles definidos en la aplicación
   ROLES: {
+    SUPERADMIN: 'superadmin',
     ADMIN: 'administrador',
     EDITOR: 'editor',
     VIEWER: 'visualizador',

@@ -161,10 +161,10 @@ exports.handler = async (event) => {
 
   // ── Admin: Users CRUD ────────────────────────────────────────────────────────
   if (rel.startsWith('/admin/users')) {
-    // Auth guard
+    // Auth guard — superadmin and administrador can manage users
     const token = getTokenFromEvent(event);
     const payload = parseToken(token);
-    if (!payload || payload.role !== 'administrador') {
+    if (!payload || (payload.role !== 'superadmin' && payload.role !== 'administrador')) {
       return json(403, { error: 'Solo administradores pueden gestionar usuarios' });
     }
 
