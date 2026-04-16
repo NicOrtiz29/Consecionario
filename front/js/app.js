@@ -157,6 +157,10 @@ let branchesMap = {};
 let alarfinData = null;
 let genSimCuotas = 12;
 
+// Pagination
+let currentPage = 1;
+const itemsPerPage = 15;
+
 // Session check for staff
 function getStaffSession() {
   try { return JSON.parse(localStorage.getItem('bbruno_admin_session')); } catch { return null; }
@@ -265,6 +269,7 @@ function renderGrid(vehicles) {
   const grid = $('#vehicleGrid');
   const empty = $('#vehicleGridEmpty');
   const info = $('#resultsInfo');
+  const pagContainer = $('#paginationContainer');
 
   if (!grid) return;
 
@@ -272,13 +277,73 @@ function renderGrid(vehicles) {
     grid.innerHTML = '';
     if (empty) empty.classList.remove('hidden');
     if (info) info.innerHTML = '';
+    if (pagContainer) pagContainer.innerHTML = '';
     return;
   }
 
   if (empty) empty.classList.add('hidden');
-  if (info) info.innerHTML = `Mostrando <strong>${vehicles.length}</strong> vehículo${vehicles.length !== 1 ? 's' : ''}`;
-  grid.innerHTML = vehicles.map(renderVehicleCard).join('');
+  
+  // Slicing for pagination
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const pageItems = vehicles.slice(startIndex, endIndex);
+
+  info.innerHTML = `Mostrando <strong>${startIndex + 1}-${Math.min(endIndex, vehicles.length)}</strong> de <strong>${vehicles.length}</strong> vehículo${vehicles.length !== 1 ? 's' : ''}`;
+  
+  grid.innerHTML = pageItems.map(renderVehicleCard).join('');
+  
+  renderPagination(vehicles.length);
+  
+  // Scroll to grid top if not first load
+  if (currentPage > 1) {
+    grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
+
+function renderPagination(totalItems) {
+  const container = $('#paginationContainer');
+  if (!container) return;
+
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  if (totalPages <= 1) {
+    container.innerHTML = '';
+    return;
+  }
+
+  let html = `
+    <button class="page-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})" aria-label="Anterior">
+      <i class="fas fa-chevron-left"></i>
+    </button>
+  `;
+
+  for (let i = 1; i <= totalPages; i++) {
+    // Show first, last, and pages around current
+    if (i === 1 || i === totalPages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+      html += `
+        <button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">
+          ${i}
+        </button>
+      `;
+    } else if (i === currentPage - 2 || i === currentPage + 2) {
+      html += `<span style="color:var(--color-gray)">...</span>`;
+    }
+  }
+
+  html += `
+    <button class="page-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})" aria-label="Siguiente">
+      <i class="fas fa-chevron-right"></i>
+    </button>
+  `;
+
+  container.innerHTML = html;
+}
+
+function changePage(page) {
+  currentPage = page;
+  renderGrid(filteredVehicles);
+}
+
+window.changePage = changePage;
 
 // ============================================================
 // NAVIGATION
@@ -340,6 +405,7 @@ function applyFilters() {
   });
 
   filteredVehicles = results;
+  currentPage = 1; // Reset to first page
   renderGrid(results);
 }
 
@@ -351,6 +417,7 @@ function clearFilters() {
   const status = $('#filterStatus'); if (status) status.value = '';
   
   filteredVehicles = allVehicles.filter(v => isStaff || !v.status || v.status === 'disponible');
+  currentPage = 1;
   renderGrid(filteredVehicles);
 }
 
