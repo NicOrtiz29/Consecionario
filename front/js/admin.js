@@ -1187,7 +1187,7 @@ async function saveBranch() {
 
 async function loadBranches() {
   try {
-    allBranches = await apiGet('branches', { order: 'name.asc' });
+    allBranches = await apiGet('branches');
     if (currentPanel === 'branches') renderBranchesList(allBranches);
   } catch (err) { console.error('[Admin] Error cargando sucursales:', err); }
 }
@@ -1284,7 +1284,7 @@ async function saveUser() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; }
 
   try {
-    const endpoint = id ? `/api/admin/users/${id}` : '/api/admin/users';
+    const endpoint = id ? `/admin/users/${id}` : '/admin/users';
     const method = id ? 'PATCH' : 'POST';
     
     await apiFetch(endpoint, {
