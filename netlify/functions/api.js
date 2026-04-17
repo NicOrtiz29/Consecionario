@@ -134,6 +134,44 @@ exports.handler = async (event) => {
     }
   }
 
+  // ── Instagram Extractor Proxy ─────────────────────────────────────────────────
+  if (rel === '/ig-extract' && httpMethod === 'GET') {
+    const shortcode = event.queryStringParameters?.shortcode;
+    if (!shortcode) return json(400, { error: 'Shortcode requerido' });
+
+    try {
+      const response = await fetch(`https://www.instagram.com/p/${shortcode}/`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'es-ES,es;q=0.9'
+        }
+      });
+      const html = await response.text();
+      
+      // TÉCNICA 1: Buscar display_url
+      const displayUrlRegex = /"display_url":"([^"]+?\.jpg[^"]+?)"/g;
+      let images = [];
+      let m;
+      while ((m = displayUrlRegex.exec(html)) !== null) {
+        images.push(m[1].replace(/\\u0026/g, '&').replace(/\\/g, ''));
+      }
+
+      // TÉCNICA 2: Buscar cualquier link scontent que termine en .jpg
+      const rawRegex = /https:\/\/scontent[^" \n\\]+?\.cdninstagram\.com\/[^" \n\\]+?\.jpg[^" \n\\]+?/g;
+      const rawMatches = html.match(rawRegex) || [];
+      images = images.concat(rawMatches.map(u => u.replace(/\\u0026/g, '&')));
+
+      // Filtrar fotos reales y quitar duplicados
+      images = images.filter(url => !url.includes('150x150') && url.includes('cdninstagram.com'));
+      const uniqueImages = [...new Set(images)].slice(0, 10);
+      
+      return json(200, { images: uniqueImages });
+    } catch (err) {
+      console.error('[IG Error]', err.message);
+      return json(500, { error: 'Error de conexión con Instagram' });
+    }
+  }
+
   // ── Auth: Login ─────────────────────────────────────────────────────────────
   if (rel === '/auth/login' && httpMethod === 'POST') {
     const { username, password } = body;

@@ -295,19 +295,13 @@ function renderPhotoPreviews() {
   if (label) label.textContent = `(${count}/8 fotos)`;
 }
 
-window.addPhoto = function() {
+window.addPhoto = async function() {
   const input = $('#vfPhotoUrl');
   let url = input?.value.trim();
   if (!url) return;
 
   if (vehiclePhotos.length >= 8) {
     showToast('Límite alcanzado', 'Podés cargar hasta 8 fotos por vehículo.', 'warning');
-    return;
-  }
-
-  // Evitar duplicados
-  if (vehiclePhotos.includes(url)) {
-    showToast('Foto duplicada', 'Esta imagen ya fue agregada.', 'warning');
     return;
   }
 
@@ -319,25 +313,49 @@ window.addPhoto = function() {
     try {
       const type = match[2]; 
       const shortcode = match[3]; 
-      const igUrl = `https://www.instagram.com/${type}/${shortcode}/media/?size=l`;
-      
-      // Verificamos si ya existe el MISMO post (para evitar repetir la portada)
-      const isDuplicatePost = vehiclePhotos.some(p => p.includes(`/${shortcode}/`));
-      if (isDuplicatePost) {
-        showToast('Aviso: Mismo Post', 'Ya agregaste la portada de este post. Para las otras fotos, usá "Copiar dirección de imagen".', 'warning');
-        // No bloqueamos, por si el usuario realmente quiere repetirla, 
-        // pero avisamos por qué se ve igual.
-      }
 
-      url = `https://images.weserv.nl/?url=${encodeURIComponent(igUrl)}&default=https://placehold.co/800x600/2b2b2b/888?text=Instagram+No+Disponible`;
+      // Buscar si el usuario pegó el parámetro img_index
+      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+      const imgIndexVal = urlObj.searchParams.get('img_index');
+      let targetImgIndex = imgIndexVal ? parseInt(imgIndexVal) - 1 : 0;
       
-      console.log('[Admin] IG detectado y procesado:', { shortcode, url });
+      // Mostrar el botón de la varita de igual modo
       $('#igExtraButtons').style.display = 'block';
+
+      if (targetImgIndex > 0) {
+        // Obtenemos la imagen usando el backend en vez de la portada
+        showToast('Extrayendo foto...', 'Buscando la foto solicitada...', 'info');
+        const apiBase = window.APP_CONFIG?.API_URL || 'http://localhost:3005/api';
+        const res = await fetch(`${apiBase}/ig-extract?shortcode=${shortcode}`);
+        const data = await res.json();
+
+        if (data.images && data.images.length > targetImgIndex) {
+            url = `https://images.weserv.nl/?url=${encodeURIComponent(data.images[targetImgIndex])}&default=https://placehold.co/800x600/2b2b2b/888?text=Error+IG`;
+        } else {
+            showToast('Aviso', 'No se encontró la foto en ese índice, se usará la portada.', 'warning');
+            const igUrl = `https://www.instagram.com/${type}/${shortcode}/media/?size=l`;
+            url = `https://images.weserv.nl/?url=${encodeURIComponent(igUrl)}&default=https://placehold.co/800x600/2b2b2b/888?text=Instagram+No+Disponible`;
+        }
+      } else {
+        const igUrl = `https://www.instagram.com/${type}/${shortcode}/media/?size=l`;
+        const isDuplicatePost = vehiclePhotos.some(p => p.includes(`/${shortcode}/`));
+        if (isDuplicatePost) {
+          showToast('Aviso: Mismo Post', 'Ya agregaste la portada de este post. Para extraer las otras, tocá la varita mágica amarilla.', 'warning');
+        }
+        url = `https://images.weserv.nl/?url=${encodeURIComponent(igUrl)}&default=https://placehold.co/800x600/2b2b2b/888?text=Instagram+No+Disponible`;
+      }
+      console.log('[Admin] IG procesado:', { shortcode, targetImgIndex, finalUrl: url });
     } catch (e) {
       console.warn('Error procesando link de IG:', e);
     }
   } else {
     $('#igExtraButtons').style.display = 'none';
+  }
+
+  // Evitar duplicados
+  if (vehiclePhotos.includes(url)) {
+    showToast('Foto duplicada', 'Esta imagen ya fue agregada.', 'warning');
+    return;
   }
 
   vehiclePhotos.push(url);
