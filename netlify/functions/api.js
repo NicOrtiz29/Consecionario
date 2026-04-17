@@ -154,20 +154,10 @@ exports.handler = async (event) => {
     }
 
     try {
-      const crypto = require('crypto');
-      const timestamp = Math.round((new Date()).getTime() / 1000);
-      
-      const signature = crypto
-        .createHash('sha1')
-        .update(`timestamp=${timestamp}${CLOUDINARY_API_SECRET}`)
-        .digest('hex');
-
-      // Use FormData which is the standard for Cloudinary uploads
+      // Use FormData with the Unsigned Upload Preset provided by the user
       const formData = new FormData();
-      formData.append('file', image); // The base64 string
-      formData.append('timestamp', timestamp);
-      formData.append('api_key', CLOUDINARY_API_KEY);
-      formData.append('signature', signature);
+      formData.append('file', image); 
+      formData.append('upload_preset', 'lurpwvnj'); // Unsigned preset
 
       const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_NAME}/image/upload`, {
         method: 'POST',
