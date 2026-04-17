@@ -88,12 +88,12 @@ async function logAction(payload, action, table, targetId, details = {}, targetN
         username: payload.username,
         action: action,
         target_table: table,
-        target_id: String(targetId),
-        target_name: targetName,
-        details: details,
+        target_id: String(targetId || 'N/A'),
+        target_name: targetName || null,
+        details: typeof details === 'object' ? details : { info: details },
         created_at: new Date().toISOString()
       }),
-      prefer: ''
+      headers: { 'Prefer': 'return=minimal' }
     });
   } catch (err) {
     console.warn('[Audit] Falló el registro:', err.message);
@@ -172,7 +172,11 @@ exports.handler = async (event) => {
         throw new Error(result.error?.message || 'Error en Cloudinary');
       }
 
-      return json(200, { url: result.secure_url });
+      const url = result.secure_url;
+      // AUDIT: log image upload
+      await logAction(tokenPayload, 'UPLOAD_IMAGE', 'vehicles', 'N/A', { url });
+
+      return json(200, { url });
     } catch (err) {
       console.error('[Upload Error]', err.message);
       return json(500, { 
@@ -222,6 +226,9 @@ exports.handler = async (event) => {
       };
 
       const token = makeToken(safeUser);
+      // AUDIT: log login
+      await logAction(safeUser, 'LOGIN', 'auth', user.id);
+      
       return json(200, { user: safeUser, token });
     } catch (err) {
       console.error('[Auth/Login]', err.message);
@@ -304,7 +311,9 @@ exports.handler = async (event) => {
           }),
           prefer: 'return=representation'
         });
-        return json(201, Array.isArray(newUser) ? newUser[0] : newUser);
+        const finalUser = Array.isArray(newUser) ? newUser[0] : newUser;
+        await logAction(tokenPayload, 'CREATE_USER', 'admin_users', finalUser?.id, { username: finalUser?.username, role: finalUser?.role });
+        return json(201, finalUser);
       }
 
       if (httpMethod === 'PATCH' && userId) {
@@ -329,19 +338,22 @@ exports.handler = async (event) => {
           body: JSON.stringify(update),
           prefer: 'return=representation'
         });
-        return json(200, Array.isArray(updated) ? updated[0] : updated);
+        const finalUpdate = Array.isArray(updated) ? updated[0] : updated;
+        await logAction(tokenPayload, 'UPDATE_USER', 'admin_users', userId, { username: finalUpdate?.username, role: finalUpdate?.role });
+        return json(200, finalUpdate);
       }
 
       if (httpMethod === 'DELETE' && userId) {
         // Validation: Cannot delete a superadmin if not superadmin
         if (!isSuperRequester) {
-          const target = await sb(`admin_users?id=eq.${userId}&select=role`, { method: 'GET', prefer: '' });
+          const target = await sb(`admin_users?id=eq.${userId}&select=role,username`, { method: 'GET', prefer: '' });
           if (target && target[0] && String(target[0].role).toLowerCase() === 'superadmin') {
             return json(403, { error: 'No podés eliminar a un Superadmin' });
           }
         }
 
         await sb(`admin_users?id=eq.${userId}`, { method: 'DELETE', prefer: '' });
+        await logAction(tokenPayload, 'DELETE_USER', 'admin_users', userId);
         return json(200, { success: true });
       }
 
@@ -400,7 +412,7 @@ exports.handler = async (event) => {
           headers: { 'Prefer': 'return=representation,resolution=merge-duplicates' }
         });
         const finalData = Array.isArray(result) ? result[0] : result;
-        await logAction(tokenPayload, 'UPDATE/UPSERT', table, finalData.id || body.patent, body);
+        await logAction(tokenPayload, 'UPDATE/UPSERT', table, finalData?.id || body.patent, body);
         return json(200, finalData);
       }
       const result = await sb(table, {
@@ -409,7 +421,7 @@ exports.handler = async (event) => {
         prefer: 'return=representation'
       });
       const finalData = Array.isArray(result) ? result[0] : result;
-      await logAction(tokenPayload, 'CREATE', table, finalData.id, body);
+      await logAction(tokenPayload, 'CREATE', table, finalData?.id, body);
       return json(201, finalData);
     }
 
