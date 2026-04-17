@@ -129,49 +129,6 @@
     .loader-text { font-size: 0.85rem; color: var(--color-gray); }
 
 
-    /* Admin Section */
-    .admin-stats-bar {
-      background: linear-gradient(90deg, #f5d80a 0%, #d4b800 100%);
-      color: var(--color-black);
-      padding: 0.5rem 1rem;
-      font-size: 0.75rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-radius: 8px 8px 0 0;
-      margin-bottom: -1rem;
-      position: relative;
-      z-index: 5;
-    }
-    .admin-info-box {
-      background: rgba(245, 216, 10, 0.03);
-      border: 1px dashed rgba(245, 216, 10, 0.4);
-      border-radius: var(--border-radius-lg);
-      padding: 1.25rem;
-      margin-bottom: 2rem;
-    }
-    .admin-info-box h4 {
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--color-yellow);
-      margin-bottom: 0.75rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-    .admin-data-row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.88rem;
-      padding: 0.5rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-    }
-    .admin-data-row:last-child { border-bottom: none; }
-    .admin-data-label { color: var(--color-gray-light); }
-    .admin-data-value { color: var(--color-white); font-weight: 600; }
-
   </style>
 </head>
 <body>
@@ -203,10 +160,6 @@
 
   <!-- MAIN CONTENT -->
   <main id="mainContent" class="section" style="display:none">
-    <div id="adminStatsBar" class="admin-stats-bar" style="display:none">
-      <span><i class="fas fa-shield-halved"></i> VISTA DE ADMINISTRACIÓN ACTIVADA</span>
-      <span id="adminUserRole"></span>
-    </div>
     <div class="container">
       <!-- Breadcrumb -->
       <nav class="breadcrumb" aria-label="Ruta de navegación" id="breadcrumb">
@@ -220,28 +173,6 @@
       <div class="detail-layout">
         <!-- LEFT COLUMN -->
         <div>
-          <!-- Admin Info (Staff Only) -->
-          <div id="adminInfoBox" class="admin-info-box" style="display:none">
-            <h4><i class="fas fa-lock-open"></i> Información Interna</h4>
-            <div class="admin-data-row">
-              <span class="admin-data-label">Patente / Dominio:</span>
-              <span class="admin-data-value" id="adminPatent">—</span>
-            </div>
-            <div class="admin-data-row">
-              <span class="admin-data-label">Número de VIN (Chasis):</span>
-              <span class="admin-data-value" id="adminVin">—</span>
-            </div>
-            <div style="margin-top:1rem">
-              <span class="admin-data-label" style="display:block;margin-bottom:0.5rem">Notas Internas / Comentarios:</span>
-              <div id="adminNotes" style="font-size:0.9rem; color:var(--color-white); line-height:1.5; background:rgba(255,255,255,0.03); padding:1rem; border-radius:8px; min-height:60px"></div>
-            </div>
-            <div style="margin-top:1.25rem; display:flex; gap:0.5rem">
-              <a id="adminEditLink" href="#" class="btn btn-outline btn-sm" style="flex:1">
-                <i class="fas fa-pen"></i> Editar este vehículo
-              </a>
-            </div>
-          </div>
-
           <!-- Gallery -->
             <div class="gallery-main" style="position:relative">
               <button class="gallery-nav gallery-prev" onclick="navGallery(-1)" aria-label="Foto anterior">
@@ -259,6 +190,19 @@
               <i class="fas fa-align-left" aria-hidden="true"></i> Descripción
             </h3>
             <p id="vehicleDescription" style="color:var(--color-gray-light);font-size:0.9rem;line-height:1.7"></p>
+          </div>
+
+          <!-- Internal Notes (Staff Only) -->
+          <div id="adminNotesSection" style="display:none;margin-top:2rem;background:var(--color-gray-dark);border-radius:var(--border-radius-lg);padding:1.75rem;border:1px solid var(--color-yellow);border-style:dashed">
+            <h3 style="font-size:1rem;font-weight:700;margin-bottom:0.75rem;color:var(--color-yellow)">
+              <i class="fas fa-lock" aria-hidden="true"></i> Notas Internas (Solo Staff)
+            </h3>
+            <p id="adminNotesContent" style="color:var(--color-white);font-size:0.9rem;line-height:1.7"></p>
+            <div style="margin-top:1.25rem;pt:1rem;border-top:1px solid rgba(255,255,255,0.06)">
+               <a id="adminEditLink" href="#" class="btn btn-ghost btn-sm" style="color:var(--color-yellow);padding-left:0">
+                 <i class="fas fa-pen"></i> Editar este vehículo
+               </a>
+            </div>
           </div>
 
           <!-- Features -->
@@ -607,19 +551,13 @@
     const canSeeKeys = session && ['superadmin', 'administrador', 'editor'].includes(session.role);
 
     // Render Admin Views
-    if (isStaffUser) {
-      if ($('#adminStatsBar')) {
-        $('#adminStatsBar').style.display = 'flex';
-        $('#adminUserRole').textContent = session.role.toUpperCase();
-      }
-      if ($('#adminInfoBox')) {
-        $('#adminInfoBox').style.display = 'block';
-        $('#adminPatent').textContent = vehicle.patent || 'N/A';
-        $('#adminVin').textContent = vehicle.vin || 'No registrado';
-        $('#adminNotes').innerHTML = (vehicle.internal_notes || 'Sin comentarios internos.').replace(/\n/g, '<br>');
+    if (isStaffUser && vehicle.internal_notes) {
+      const notesSec = $('#adminNotesSection');
+      if (notesSec) {
+        notesSec.style.display = 'block';
+        $('#adminNotesContent').innerHTML = vehicle.internal_notes.replace(/\n/g, '<br>');
         $('#adminEditLink').onclick = (e) => {
           e.preventDefault();
-          // Redirigir al admin con el ID para abrir edición (si implementamos esa lógica)
           window.location.href = `admin.html?edit=${vehicle.id}`;
         };
       }
