@@ -10,7 +10,12 @@
  */
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY; // service_role or anon with open RLS
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+
+// Cloudinary Config
+const CLOUDINARY_NAME = process.env.CLOUDINARY_NAME;
+const CLOUDINARY_API_KEY = process.env.CLOUDINARY_API_KEY;
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -132,8 +137,46 @@ exports.handler = async (event) => {
     } catch (err) {
       return json(502, { error: 'Error conectando con Alarfin', details: err.message });
     }
-  }
+  }  // ── Cloudinary: Upload ──────────────────────────────────────────────────
+  if (rel === '/upload-image' && httpMethod === 'POST') {
+    const { image } = body; // Base64 image or URL
+    if (!image) return json(400, { error: 'Imagen requerida' });
 
+    try {
+      const crypto = require('crypto');
+      const timestamp = Math.round((new Date()).getTime() / 1000);
+      
+      // Create signature for Cloudinary (unsigned uploads are also possible but this is safer)
+      // To keep it simple and avoid complex param sorting, we use a simple signature for upload
+      const signature = crypto
+        .createHash('sha1')
+        .update(`timestamp=${timestamp}${CLOUDINARY_API_SECRET}`)
+        .digest('hex');
+
+      const formData = new URLSearchParams();
+      formData.append('file', image);
+      formData.append('timestamp', timestamp);
+      formData.append('api_key', CLOUDINARY_API_KEY);
+      formData.append('signature', signature);
+
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_NAME}/image/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Error en Cloudinary');
+      }
+
+      const result = await response.json();
+      return json(200, { url: result.secure_url });
+    } catch (err) {
+      console.error('[Upload]', err.message);
+      return json(500, { error: 'Error al subir imagen', details: err.message });
+    }
+  }
 
 
   // ── Auth: Login ─────────────────────────────────────────────────────────────

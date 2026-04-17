@@ -374,19 +374,35 @@ function blobToBase64(blob) {
 }
 
 async function processImageFile(file) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
-      if (vehiclePhotos.length < 8) {
-        vehiclePhotos.push(e.target.result);
-        renderPhotoPreviews();
-        showToast('Foto agregada', `Imagen "${file.name}" cargada.`, 'success');
+    reader.onload = async (e) => {
+      if (vehiclePhotos.length >= 8) {
+        resolve();
+        return;
+      }
+
+      showToast('Subiendo...', `Subiendo "${file.name}" a la nube...`, 'info');
+      try {
+        const res = await apiFetch('/upload-image', {
+          method: 'POST',
+          body: { image: e.target.result }
+        });
+
+        if (res.url) {
+          vehiclePhotos.push(res.url);
+          renderPhotoPreviews();
+          showToast('Foto subida', `Imagen "${file.name}" guardada en la nube.`, 'success');
+        }
+      } catch (err) {
+        console.error('Error subiendo imagen:', err);
+        showToast('Error de subida', `No se pudo subir "${file.name}".`, 'error');
       }
       resolve();
     };
     reader.onerror = () => {
       showToast('Error', `No se pudo leer la imagen "${file.name}".`, 'error');
-      resolve(); // Continuamos con la siguiente
+      resolve();
     };
     reader.readAsDataURL(file);
   });
@@ -414,8 +430,19 @@ async function processZipFile(file) {
       
       const blob = await imgFile.async('blob');
       const base64 = await blobToBase64(blob);
-      vehiclePhotos.push(base64);
-      addedCount++;
+      
+      try {
+        const res = await apiFetch('/upload-image', {
+          method: 'POST',
+          body: { image: base64 }
+        });
+        if (res.url) {
+          vehiclePhotos.push(res.url);
+          addedCount++;
+        }
+      } catch (err) {
+        console.error('Error subiendo imagen de ZIP:', err);
+      }
     }
     
     renderPhotoPreviews();
