@@ -163,18 +163,16 @@ exports.handler = async (event) => {
         .update(`timestamp=${timestamp}${CLOUDINARY_API_SECRET}`)
         .digest('hex');
 
-      // Use a standard object/JSON for Cloudinary upload
-      const payload = {
-        file: image,
-        timestamp: timestamp,
-        api_key: CLOUDINARY_API_KEY,
-        signature: signature
-      };
+      // Use FormData which is the standard for Cloudinary uploads
+      const formData = new FormData();
+      formData.append('file', image); // The base64 string
+      formData.append('timestamp', timestamp);
+      formData.append('api_key', CLOUDINARY_API_KEY);
+      formData.append('signature', signature);
 
       const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_NAME}/image/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: formData
       });
 
       const result = await response.json();

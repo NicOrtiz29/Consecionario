@@ -167,7 +167,8 @@ async function apiFetch(endpoint, options = {}) {
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: 'Error desconocido' }));
-    throw new Error(data.error || 'Error en la petición');
+    const msg = data.details ? `${data.error} (${data.details})` : (data.error || 'Error en la petición');
+    throw new Error(msg);
   }
   return res.json();
 }
