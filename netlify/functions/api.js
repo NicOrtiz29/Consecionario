@@ -154,10 +154,12 @@ exports.handler = async (event) => {
     }
 
     try {
-      // Use FormData with the Unsigned Upload Preset provided by the user
+      // Use FormData with the Unsigned Upload Preset
+      // We also include the api_key just to help Cloudinary identify the account faster
       const formData = new FormData();
       formData.append('file', image); 
-      formData.append('upload_preset', 'lurpwvnj'); // Unsigned preset
+      formData.append('upload_preset', 'lurpwvnj');
+      formData.append('api_key', CLOUDINARY_API_KEY);
 
       const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_NAME}/image/upload`, {
         method: 'POST',
