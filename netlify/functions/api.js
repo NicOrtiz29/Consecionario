@@ -140,7 +140,7 @@ exports.handler = async (event) => {
     if (!shortcode) return json(400, { error: 'Shortcode requerido' });
 
     try {
-      const response = await fetch(`https://www.instagram.com/p/${shortcode}/`, {
+      const response = await fetch(`https://www.instagram.com/p/${shortcode}/embed/captioned/`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept-Language': 'es-ES,es;q=0.9'

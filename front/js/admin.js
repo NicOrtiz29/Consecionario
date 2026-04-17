@@ -320,7 +320,8 @@ window.addPhoto = async function() {
       let targetImgIndex = imgIndexVal ? parseInt(imgIndexVal) - 1 : 0;
       
       // Mostrar el botón de la varita de igual modo
-      $('#igExtraButtons').style.display = 'block';
+      const igBtn = $('#igExtraButtons');
+      if (igBtn) igBtn.style.display = 'block';
 
       if (targetImgIndex > 0) {
         // Obtenemos la imagen usando el backend en vez de la portada
@@ -349,7 +350,8 @@ window.addPhoto = async function() {
       console.warn('Error procesando link de IG:', e);
     }
   } else {
-    $('#igExtraButtons').style.display = 'none';
+    const igBtn = $('#igExtraButtons');
+    if (igBtn) igBtn.style.display = 'none';
   }
 
   // Evitar duplicados
