@@ -11,6 +11,7 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+const bcrypt = require('bcryptjs');
 
 // Cloudinary Config
 const CLOUDINARY_NAME = process.env.CLOUDINARY_NAME;
@@ -198,13 +199,7 @@ exports.handler = async (event) => {
 
       let isValidPass = false;
       if (user.password_hash && (user.password_hash.startsWith('$2b$') || user.password_hash.startsWith('$2a$'))) {
-        try {
-          const bcrypt = require('bcryptjs');
-          isValidPass = bcrypt.compareSync(password, user.password_hash);
-        } catch(e) {
-          console.error("Require bcryptjs failed", e);
-          isValidPass = false;
-        }
+        isValidPass = bcrypt.compareSync(password, user.password_hash);
       } else {
         isValidPass = (user.password_hash === password);
       }
@@ -290,13 +285,7 @@ exports.handler = async (event) => {
 
         if (!username || !password) return json(400, { error: 'username y password son requeridos' });
 
-        let finalPasswordToSave = password;
-        try {
-          const bcrypt = require('bcryptjs');
-          finalPasswordToSave = bcrypt.hashSync(password, 10);
-        } catch(e) {
-          console.warn("bcryptjs not found, saving plaintext");
-        }
+        const finalPasswordToSave = bcrypt.hashSync(password, 10);
 
         const newUser = await sb('admin_users', {
           method: 'POST',
@@ -325,12 +314,7 @@ exports.handler = async (event) => {
         if (body.role !== undefined) update.role = body.role;
         if (body.is_active !== undefined) update.is_active = body.is_active;
         if (body.password) {
-          try {
-            const bcrypt = require('bcryptjs');
-            update.password_hash = bcrypt.hashSync(body.password, 10);
-          } catch(e) {
-            update.password_hash = body.password;
-          }
+          update.password_hash = bcrypt.hashSync(body.password, 10);
         }
 
         const updated = await sb(`admin_users?id=eq.${userId}`, {
