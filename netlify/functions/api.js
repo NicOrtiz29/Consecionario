@@ -138,44 +138,59 @@ exports.handler = async (event) => {
     } catch (err) {
       return json(502, { error: 'Error conectando con Alarfin', details: err.message });
     }
-  }  // ── Cloudinary: Upload ──────────────────────────────────────────────────
+  }
+
+  // ── Cloudinary: Upload ──────────────────────────────────────────────────
   if (rel === '/upload-image' && httpMethod === 'POST') {
-    const { image } = body; // Base64 image or URL
+    const { image } = body; // Base64 image
     if (!image) return json(400, { error: 'Imagen requerida' });
+
+    // Check for missing env vars
+    if (!CLOUDINARY_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
+      console.error('[Upload] Missing Cloudinary environment variables');
+      return json(500, { 
+        error: 'Configuración incompleta', 
+        details: 'Faltan variables de entorno de Cloudinary en Netlify.' 
+      });
+    }
 
     try {
       const crypto = require('crypto');
       const timestamp = Math.round((new Date()).getTime() / 1000);
       
-      // Create signature for Cloudinary (unsigned uploads are also possible but this is safer)
-      // To keep it simple and avoid complex param sorting, we use a simple signature for upload
       const signature = crypto
         .createHash('sha1')
         .update(`timestamp=${timestamp}${CLOUDINARY_API_SECRET}`)
         .digest('hex');
 
-      const formData = new URLSearchParams();
-      formData.append('file', image);
-      formData.append('timestamp', timestamp);
-      formData.append('api_key', CLOUDINARY_API_KEY);
-      formData.append('signature', signature);
+      // Use a standard object/JSON for Cloudinary upload
+      const payload = {
+        file: image,
+        timestamp: timestamp,
+        api_key: CLOUDINARY_API_KEY,
+        signature: signature
+      };
 
       const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_NAME}/image/upload`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
+      const result = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Error en Cloudinary');
+        throw new Error(result.error?.message || 'Error en Cloudinary');
       }
 
-      const result = await response.json();
       return json(200, { url: result.secure_url });
     } catch (err) {
-      console.error('[Upload]', err.message);
-      return json(500, { error: 'Error al subir imagen', details: err.message });
+      console.error('[Upload Error]', err.message);
+      return json(500, { 
+        error: 'Error al subir imagen', 
+        details: err.message,
+        type: 'CLOUDINARY_ERROR'
+      });
     }
   }
 
