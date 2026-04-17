@@ -306,6 +306,7 @@ window.addPhoto = async function() {
   }
 
   // Soporte para Instagram con Proxy (Acepta cualquier formato de link)
+  // Extraemos la portada (index 1) usando el proxy de tamaño grande
   const igRegex = /(instagram\.com|instagr\.am)\/(?:.*\/)?(p|reels|tv)\/([A-Za-z0-9_-]+)/i;
   const match = url.match(igRegex);
   
@@ -314,44 +315,17 @@ window.addPhoto = async function() {
       const type = match[2]; 
       const shortcode = match[3]; 
 
-      // Buscar si el usuario pegó el parámetro img_index
-      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-      const imgIndexVal = urlObj.searchParams.get('img_index');
-      let targetImgIndex = imgIndexVal ? parseInt(imgIndexVal) - 1 : 0;
-      
-      // Mostrar el botón de la varita de igual modo
-      const igBtn = $('#igExtraButtons');
-      if (igBtn) igBtn.style.display = 'block';
-
-      if (targetImgIndex > 0) {
-        // Obtenemos la imagen usando el backend en vez de la portada
-        showToast('Extrayendo foto...', 'Buscando la foto solicitada...', 'info');
-        const apiBase = window.APP_CONFIG?.API_URL || 'http://localhost:3005/api';
-        const res = await fetch(`${apiBase}/ig-extract?shortcode=${shortcode}`);
-        const data = await res.json();
-
-        if (data.images && data.images.length > targetImgIndex) {
-            url = `https://images.weserv.nl/?url=${encodeURIComponent(data.images[targetImgIndex])}&default=https://placehold.co/800x600/2b2b2b/888?text=Error+IG`;
-        } else {
-            showToast('Aviso', 'No se encontró la foto en ese índice, se usará la portada.', 'warning');
-            const igUrl = `https://www.instagram.com/${type}/${shortcode}/media/?size=l`;
-            url = `https://images.weserv.nl/?url=${encodeURIComponent(igUrl)}&default=https://placehold.co/800x600/2b2b2b/888?text=Instagram+No+Disponible`;
-        }
-      } else {
-        const igUrl = `https://www.instagram.com/${type}/${shortcode}/media/?size=l`;
-        const isDuplicatePost = vehiclePhotos.some(p => p.includes(`/${shortcode}/`));
-        if (isDuplicatePost) {
-          showToast('Aviso: Mismo Post', 'Ya agregaste la portada de este post. Para extraer las otras, tocá la varita mágica amarilla.', 'warning');
-        }
-        url = `https://images.weserv.nl/?url=${encodeURIComponent(igUrl)}&default=https://placehold.co/800x600/2b2b2b/888?text=Instagram+No+Disponible`;
+      const igUrl = `https://www.instagram.com/${type}/${shortcode}/media/?size=l`;
+      const isDuplicatePost = vehiclePhotos.some(p => p.includes(`/${shortcode}/`));
+      if (isDuplicatePost) {
+        showToast('Aviso: Mismo Post', 'Ya agregaste la portada de este post de Instagram.', 'warning');
       }
-      console.log('[Admin] IG procesado:', { shortcode, targetImgIndex, finalUrl: url });
+      url = `https://images.weserv.nl/?url=${encodeURIComponent(igUrl)}&default=https://placehold.co/800x600/2b2b2b/888?text=Instagram+No+Disponible`;
+      
+      console.log('[Admin] IG portada procesada:', { shortcode, finalUrl: url });
     } catch (e) {
       console.warn('Error procesando link de IG:', e);
     }
-  } else {
-    const igBtn = $('#igExtraButtons');
-    if (igBtn) igBtn.style.display = 'none';
   }
 
   // Evitar duplicados
@@ -363,54 +337,10 @@ window.addPhoto = async function() {
   vehiclePhotos.push(url);
   renderPhotoPreviews();
   input.value = '';
-  showToast('Foto agregada', 'La imagen ha sido pre-cargada correctamente', 'info');
+  showToast('Foto agregada', 'La imagen ha sido cargada', 'info');
 };
 
-window.extractIGImages = async function() {
-  const url = $('#vfPhotoUrl')?.value || (vehiclePhotos.find(p => p.includes('instagram.com')) || '');
-  const igRegex = /(instagram\.com|instagr\.am)\/(?:.*\/)?(p|reels|tv)\/([A-Za-z0-9_-]+)/i;
-  const match = url.match(igRegex);
-  
-  if (!match) {
-    showToast('Error', 'No hay un link de Instagram válido para extraer.', 'error');
-    return;
-  }
 
-  const shortcode = match[3];
-  showToast('Extrayendo...', 'Buscando fotos en Instagram...', 'info');
-
-  try {
-    const apiBase = window.APP_CONFIG?.API_URL || 'http://localhost:3005/api';
-    const res = await fetch(`${apiBase}/ig-extract?shortcode=${shortcode}`);
-    const data = await res.json();
-
-    if (data.images && data.images.length > 0) {
-      // Limpiamos las repetidas
-      const newImages = data.images.filter(img => !vehiclePhotos.includes(img));
-      
-      if (newImages.length === 0) {
-        showToast('Info', 'Ya se importaron todas las fotos disponibles.', 'info');
-        return;
-      }
-
-      // Agregamos todas pasando por el Proxy para evitar el error 403
-      newImages.forEach(img => {
-        if (vehiclePhotos.length < 8) {
-          const proxiedUrl = `https://images.weserv.nl/?url=${encodeURIComponent(img)}&default=https://placehold.co/800x600/2b2b2b/888?text=Error+IG`;
-          vehiclePhotos.push(proxiedUrl);
-        }
-      });
-      
-      renderPhotoPreviews();
-      showToast('¡Éxito!', `Se agregaron ${newImages.length} fotos encontradas.`, 'success');
-    } else {
-      showToast('Error', 'No se encontraron fotos adicionales.', 'warning');
-    }
-  } catch (err) {
-    console.error('Error extrayendo IG:', err);
-    showToast('Error', 'No se pudo contactar con el extractor.', 'error');
-  }
-};
 
 window.handleLocalPhoto = async function(event) {
   const files = Array.from(event.target.files);

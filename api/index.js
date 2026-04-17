@@ -127,6 +127,8 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
   }
 });
 
+
+
 app.post('/api/admin/users', authenticateToken, async (req, res) => {
   if (req.user.role !== 'administrador') return res.status(403).json({ error: 'No tenés permisos' });
   const { username, password, full_name, role, is_active } = req.body;
