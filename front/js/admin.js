@@ -374,6 +374,30 @@ function blobToBase64(blob) {
   });
 }
 
+async function compressImage(base64, maxWidth = 1600, quality = 0.8) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > maxWidth) {
+        height = Math.round((maxWidth / width) * height);
+        width = maxWidth;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => resolve(base64); // Fallback to original if error
+    img.src = base64;
+  });
+}
+
 async function processImageFile(file) {
   return new Promise(async (resolve) => {
     const reader = new FileReader();
@@ -383,11 +407,14 @@ async function processImageFile(file) {
         return;
       }
 
-      showToast('Subiendo...', `Subiendo "${file.name}" a la nube...`, 'info');
+      showToast('Optimizando...', `Reduciendo tamaño de "${file.name}"...`, 'info');
       try {
+        const optimizedImage = await compressImage(e.target.result);
+        showToast('Subiendo...', `Subiendo "${file.name}" a la nube...`, 'info');
+        
         const res = await apiFetch('/upload-image', {
           method: 'POST',
-          body: { image: e.target.result }
+          body: { image: optimizedImage }
         });
 
         if (res.url) {
@@ -431,11 +458,12 @@ async function processZipFile(file) {
       
       const blob = await imgFile.async('blob');
       const base64 = await blobToBase64(blob);
+      const optimized = await compressImage(base64);
       
       try {
         const res = await apiFetch('/upload-image', {
           method: 'POST',
-          body: { image: base64 }
+          body: { image: optimized }
         });
         if (res.url) {
           vehiclePhotos.push(res.url);

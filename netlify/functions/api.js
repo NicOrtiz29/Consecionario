@@ -11,7 +11,6 @@
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-const bcrypt = require('bcryptjs');
 
 // Cloudinary Config
 const CLOUDINARY_NAME = process.env.CLOUDINARY_NAME;
@@ -211,6 +210,7 @@ exports.handler = async (event) => {
       }
 
       let isValidPass = false;
+      const bcrypt = require('bcryptjs');
       if (user.password_hash && (user.password_hash.startsWith('$2b$') || user.password_hash.startsWith('$2a$'))) {
         isValidPass = bcrypt.compareSync(password, user.password_hash);
       } else {
@@ -298,6 +298,7 @@ exports.handler = async (event) => {
 
         if (!username || !password) return json(400, { error: 'username y password son requeridos' });
 
+        const bcrypt = require('bcryptjs');
         const finalPasswordToSave = bcrypt.hashSync(password, 10);
 
         const newUser = await sb('admin_users', {
@@ -327,6 +328,7 @@ exports.handler = async (event) => {
         if (body.role !== undefined) update.role = body.role;
         if (body.is_active !== undefined) update.is_active = body.is_active;
         if (body.password) {
+          const bcrypt = require('bcryptjs');
           update.password_hash = bcrypt.hashSync(body.password, 10);
         }
 
