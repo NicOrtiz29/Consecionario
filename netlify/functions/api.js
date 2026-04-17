@@ -149,8 +149,24 @@ exports.handler = async (event) => {
 
       const user = Array.isArray(users) ? users[0] : null;
 
-      // Simple plaintext password check (upgrade to bcrypt if needed)
-      if (!user || user.password_hash !== password) {
+      if (!user) {
+        return json(401, { error: 'Usuario o contraseña incorrectos' });
+      }
+
+      let isValidPass = false;
+      if (user.password_hash && (user.password_hash.startsWith('$2b$') || user.password_hash.startsWith('$2a$'))) {
+        try {
+          const bcrypt = require('bcryptjs');
+          isValidPass = bcrypt.compareSync(password, user.password_hash);
+        } catch(e) {
+          console.error("Require bcryptjs failed", e);
+          isValidPass = false;
+        }
+      } else {
+        isValidPass = (user.password_hash === password);
+      }
+
+      if (!isValidPass) {
         return json(401, { error: 'Usuario o contraseña incorrectos' });
       }
 
@@ -231,6 +247,14 @@ exports.handler = async (event) => {
 
         if (!username || !password) return json(400, { error: 'username y password son requeridos' });
 
+        let finalPasswordToSave = password;
+        try {
+          const bcrypt = require('bcryptjs');
+          finalPasswordToSave = bcrypt.hashSync(password, 10);
+        } catch(e) {
+          console.warn("bcryptjs not found, saving plaintext");
+        }
+
         const newUser = await sb('admin_users', {
           method: 'POST',
           body: JSON.stringify({
@@ -238,7 +262,7 @@ exports.handler = async (event) => {
             full_name: full_name || '',
             role: role || 'vendedor',
             is_active: is_active !== false,
-            password_hash: password
+            password_hash: finalPasswordToSave
           }),
           prefer: 'return=representation'
         });
@@ -257,7 +281,14 @@ exports.handler = async (event) => {
         if (body.full_name !== undefined) update.full_name = body.full_name;
         if (body.role !== undefined) update.role = body.role;
         if (body.is_active !== undefined) update.is_active = body.is_active;
-        if (body.password) update.password_hash = body.password;
+        if (body.password) {
+          try {
+            const bcrypt = require('bcryptjs');
+            update.password_hash = bcrypt.hashSync(body.password, 10);
+          } catch(e) {
+            update.password_hash = body.password;
+          }
+        }
 
         const updated = await sb(`admin_users?id=eq.${userId}`, {
           method: 'PATCH',
