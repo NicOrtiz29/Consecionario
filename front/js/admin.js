@@ -398,42 +398,61 @@ async function compressImage(base64, maxWidth = 1600, quality = 0.8) {
   });
 }
 
-async function processImageFile(file) {
-  return new Promise(async (resolve) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      if (vehiclePhotos.length >= 8) {
-        resolve();
-        return;
-      }
-
-      showToast('Optimizando...', `Reduciendo tamaño de "${file.name}"...`, 'info');
-      try {
-        const optimizedImage = await compressImage(e.target.result);
-        showToast('Subiendo...', `Subiendo "${file.name}" a la nube...`, 'info');
-        
-        const res = await apiFetch('/upload-image', {
-          method: 'POST',
-          body: { image: optimizedImage }
-        });
-
-        if (res.url) {
-          vehiclePhotos.push(res.url);
-          renderPhotoPreviews();
-          showToast('Foto subida', `Imagen "${file.name}" guardada en la nube.`, 'success');
-        }
-      } catch (err) {
-        console.error('Error subiendo imagen:', err);
-        showToast('Error de subida', `No se pudo subir "${file.name}".`, 'error');
-      }
-      resolve();
-    };
-    reader.onerror = () => {
-      showToast('Error', `No se pudo leer la imagen "${file.name}".`, 'error');
-      resolve();
-    };
-    reader.readAsDataURL(file);
+async function uploadToSupabase(file) {
+  const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
+  const bucket = 'vehicles';
+  
+  const res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/${bucket}/${fileName}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
+      'Content-Type': file.type
+    },
+    body: file
   });
+
+  if (!res.ok) {
+     const errData = await res.json().catch(() => ({}));
+     throw new Error(errData.message || 'Error al subir imagen al servidor');
+  }
+
+  // URL pública de Supabase Storage
+  return `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/render/image/public/${bucket}/${fileName}`;
+}
+
+async function processImageFile(file) {
+  try {
+    if (vehiclePhotos.length >= 8) {
+      showToast('Límite alcanzado', 'Podés cargar hasta 8 fotos por vehículo.', 'warning');
+      return;
+    }
+
+    showToast('Optimizando...', `Reduciendo tamaño de "${file.name}"...`, 'info');
+    
+    // Leer el archivo para comprimirlo
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+
+    const optimizedBase64 = await compressImage(base64);
+    
+    // Convertir de nuevo a blob para la subida
+    const response = await fetch(optimizedBase64);
+    const blob = await response.blob();
+    const optimizedFile = new File([blob], file.name, { type: 'image/jpeg' });
+
+    showToast('Subiendo...', `Subiendo "${file.name}" a la nube...`, 'info');
+    const publicUrl = await uploadToSupabase(optimizedFile);
+    
+    vehiclePhotos.push(publicUrl);
+    renderPhotoPreviews();
+    showToast('Foto agregada', `Imagen "${file.name}" guardada en la nube.`, 'success');
+  } catch (err) {
+    console.error('[Upload Error]', err);
+    showToast('Error de subida', `No se pudo subir "${file.name}": ${err.message}`, 'error');
+  }
 }
 
 async function processZipFile(file) {
@@ -457,20 +476,26 @@ async function processZipFile(file) {
       if (vehiclePhotos.length >= 8) break;
       
       const blob = await imgFile.async('blob');
-      const base64 = await blobToBase64(blob);
-      const optimized = await compressImage(base64);
       
       try {
-        const res = await apiFetch('/upload-image', {
-          method: 'POST',
-          body: { image: optimized }
+        // Optimización
+        const base64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result);
+          reader.readAsDataURL(blob);
         });
-        if (res.url) {
-          vehiclePhotos.push(res.url);
-          addedCount++;
-        }
+        const optimizedBase64 = await compressImage(base64);
+        
+        // Convertir a File para subida
+        const response = await fetch(optimizedBase64);
+        const optimizedBlob = await response.blob();
+        const optimizedFile = new File([optimizedBlob], imgFile.name, { type: 'image/jpeg' });
+
+        const publicUrl = await uploadToSupabase(optimizedFile);
+        vehiclePhotos.push(publicUrl);
+        addedCount++;
       } catch (err) {
-        console.error('Error subiendo imagen de ZIP:', err);
+        console.warn(`[ZIP] Error procesando ${imgFile.name}:`, err.message);
       }
     }
     
