@@ -615,9 +615,10 @@ function renderDashboard() {
       rv.innerHTML = recent.map(v => {
         const st = getStatusLabel(v.status || 'disponible');
         const photo = Array.isArray(v.photos) && v.photos[0] ? v.photos[0] : 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=80&q=60';
+        const thumb = photo.includes('/storage/v1/render/image/public/') ? `${photo}?width=120&quality=60&format=webp` : photo;
         return `
           <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.04)">
-            <img src="${photo}" alt="" style="width:56px;height:38px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2256%22%20height%3D%2238%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%232B2B2B%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Arial%22%20font-size%3D%2210%22%20fill%3D%22%23888%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EBB%3C%2Ftext%3E%3C%2Fsvg%3E'">
+            <img src="${thumb}" alt="" style="width:56px;height:38px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2256%22%20height%3D%2238%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%232B2B2B%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Arial%22%20font-size%3D%2210%22%20fill%3D%22%23888%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EBB%3C%2Ftext%3E%3C%2Fsvg%3E'">
             <div style="flex:1;min-width:0">
               <div style="font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.year} ${v.brand} ${v.model}</div>
               <div style="font-size:.75rem;color:var(--color-gray)">${formatCurrency(v.price)}</div>
@@ -664,11 +665,12 @@ function renderVehiclesTable(vehicles) {
   tbody.innerHTML = vehicles.map(v => {
     const st = getStatusLabel(v.status || 'disponible');
     const photo = Array.isArray(v.photos) && v.photos[0] ? v.photos[0] : 'https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=80&q=60';
+    const thumb = photo.includes('/storage/v1/render/image/public/') ? `${photo}?width=80&height=54&quality=60&format=webp` : photo;
     const fuel = {nafta:'Nafta',diesel:'Diésel',gnc:'GNC',nafta_gnc:'Nafta+GNC',hibrido:'Híbrido',electrico:'Eléctrico'}[v.fuel_type] || v.fuel_type || '—';
     return `
       <tr>
         <td>
-          <img class="table-vehicle-thumb" src="${photo}" alt="" 
+          <img class="table-vehicle-thumb" src="${thumb}" alt="" 
             onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2272%22%20height%3D%2248%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%232B2B2B%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Arial%22%20font-size%3D%2212%22%20fill%3D%22%23888%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EBB%3C%2Ftext%3E%3C%2Fsvg%3E'">
         </td>
         <td>
@@ -692,7 +694,7 @@ function renderVehiclesTable(vehicles) {
             <button class="btn btn-ghost btn-sm btn-icon" title="Ver en sitio" onclick="window.open('vehicle-detail.html?id=${v.id}','_blank')" aria-label="Ver vehículo">
               <i class="fas fa-eye" aria-hidden="true"></i>
             </button>
-            <button class="btn btn-outline btn-sm btn-icon" title="Editar" onclick="openVehicleModal('${v.id}')" aria-label="Editar vehículo">
+            <button id="btn-edit-${v.id}" class="btn btn-outline btn-sm btn-icon" title="Editar" onclick="openVehicleModal('${v.id}')" aria-label="Editar vehículo">
               <i class="fas fa-pen" aria-hidden="true"></i>
             </button>
             <button class="btn btn-danger btn-sm btn-icon" title="Eliminar" onclick="confirmDelete('vehicles','${v.id}','¿Eliminar el vehículo ${v.year} ${v.brand} ${v.model} (${v.patent || 'sin patente'})? Esta acción no se puede deshacer.',loadVehicles)" aria-label="Eliminar vehículo">
@@ -727,8 +729,14 @@ function openVehicleModal(id = null) {
   docTagsCtrl = initTagsInput('vfDocsContainer', 'vfDocInputField', vehicleDocs);
 
   if (id) {
-    const v = allVehicles.find(x => x.id === id);
-    if (v) {
+    // Para editar, necesitamos TODOS los campos. Los pedimos por ID.
+    const loadingBtn = $(`#btn-edit-${id}`);
+    if (loadingBtn) loadingBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    apiFetch(`/tables/vehicles/${id}`).then(v => {
+      if (loadingBtn) loadingBtn.innerHTML = '<i class="fas fa-pen"></i>';
+      if (!v) return;
+      
       $('#vfId').value = v.id;
       $('#vfBrand').value = v.brand || '';
       $('#vfModel').value = v.model || '';
@@ -760,12 +768,15 @@ function openVehicleModal(id = null) {
         featureTagsCtrl?.render();
       }
 
-      // Docs
+      // Docs (internos)
       if (Array.isArray(v.documents)) {
         v.documents.forEach(d => vehicleDocs.push(d));
         docTagsCtrl?.render();
       }
-    }
+    }).catch(err => {
+      if (loadingBtn) loadingBtn.innerHTML = '<i class="fas fa-pen"></i>';
+      showToast('Error', 'No se pudo cargar el detalle del vehículo.', 'error');
+    });
   }
 
   // SECURITY: Disable fields for Vendedor/Viewer
@@ -918,7 +929,9 @@ async function saveVehicle() {
 // ── Load Vehicles ──
 async function loadVehicles() {
   try {
-    allVehicles = await apiGet('vehicles');
+    // Optimizamos: No pedimos campos largos como 'description' o 'features' para el listado general
+    const fields = 'id,patent,brand,model,year,version,price,down_payment,status,fuel_type,mileage,internal_notes,created_at,photos,is_featured,vin';
+    allVehicles = await apiGet(`vehicles?select=${fields}`);
     if (currentPanel === 'vehicles') renderVehiclesTable(allVehicles);
     populateVehicleSelect();
   } catch (err) {
@@ -1615,14 +1628,19 @@ async function initAdmin(user) {
   updateClock();
   setInterval(updateClock, 30000);
 
-  // Auto-refresh (cada 30 seg) — Mantiene las consultas y el stock al día
+  // Auto-refresh (cada 2 minutos) — Solo si la pestaña está visible para ahorrar ancho de banda
   setInterval(async () => {
+    if (document.visibilityState !== 'visible') return;
+    const isModalOpen = !!document.querySelector('.modal-backdrop.show');
+    if (isModalOpen) return; // No refrescar si el usuario está editando algo
+
     try {
+      console.log('[AutoRefresh] Refrescando datos para evitar inactividad...');
       await Promise.all([loadLeads(), loadVehicles()]);
     } catch (err) {
       console.warn('[AutoRefresh] Error al refrescar datos:', err);
     }
-  }, 30000);
+  }, 120000); // 120 segundos (2 minutos)
 
   // Load all data from Supabase
   await Promise.all([

@@ -38,13 +38,32 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch event - Network first, fallback to cache
+// Fetch event - Estrategia: Network First para código, Cache First para imágenes
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // 1. Ignorar APIs y recursos externos (Instagram, Google Fonts, etc.)
-  // Dejamos que el navegador los maneje directamente para evitar problemas de CORS/SW
-  if (url.pathname.includes('/tables/') || !url.origin.includes(self.location.hostname)) {
+  // 1. Manejo especial de Imágenes de Supabase (OPTIMIZACIÓN DE EGRESOS)
+  // Usamos Cache First para que las fotos solo se descarguen una vez del servidor
+  if (url.origin.includes('supabase.co') && url.pathname.includes('/storage/v1/')) {
+    event.respondWith(
+      caches.open('bbruno-images').then(cache => {
+        return cache.match(event.request).then(cachedResponse => {
+          if (cachedResponse) return cachedResponse;
+          
+          return fetch(event.request).then(networkResponse => {
+            if (networkResponse.ok) {
+              cache.put(event.request, networkResponse.clone());
+            }
+            return networkResponse;
+          });
+        });
+      })
+    );
+    return;
+  }
+
+  // 2. Ignorar APIs y recursos externos (Instagram, Google Fonts, etc.)
+  if (url.pathname.includes('/api/') || url.pathname.includes('/.netlify/') || !url.origin.includes(self.location.hostname)) {
     return;
   }
   
@@ -63,14 +82,9 @@ self.addEventListener('fetch', event => {
       .catch(() => {
         return caches.match(event.request).then(cachedResponse => {
           if (cachedResponse) return cachedResponse;
-          
-          // Si es una navegación fallida, mostrar la página principal
           if (event.request.mode === 'navigate') {
             return caches.match('/index.html');
           }
-          
-          // En última instancia, si no hay nada, devolvemos un error de red normal
-          // en lugar de dejar la promesa vacía.
           return new Response('Network error', {
             status: 408,
             headers: { 'Content-Type': 'text/plain' }

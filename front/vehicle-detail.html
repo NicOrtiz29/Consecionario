@@ -565,15 +565,26 @@
 
     const canSeePatent = isStaffUser;
 
+    // Optimizamos fotos: Usamos transformación de Supabase
+    const optimizeUrl = (url, w = 600, q = 75) => {
+      if (url && url.includes('/storage/v1/render/image/public/')) {
+        return `${url}?width=${w}&quality=${q}&format=webp`;
+      }
+      return url;
+    };
+
     // Gallery
     const mainImg = $('#galleryMainImg');
-    if (mainImg) { mainImg.src = photos[0]; mainImg.alt = `${vehicle.year} ${vehicle.brand} ${vehicle.model}`; }
+    if (mainImg) { 
+      mainImg.src = optimizeUrl(photos[0], 1200, 80); 
+      mainImg.alt = `${vehicle.year} ${vehicle.brand} ${vehicle.model}`; 
+    }
 
     const thumbsContainer = $('#galleryThumbs');
     if (thumbsContainer) {
       thumbsContainer.innerHTML = photos.map((url, i) => `
         <div class="gallery-thumb ${i === 0 ? 'active' : ''}" onclick="setMainPhoto(${i}); openLightbox(${i})" tabindex="0" onkeydown="if(event.key==='Enter')setMainPhoto(${i})" aria-label="Foto ${i+1}">
-          <img src="${url}" alt="Foto ${i+1}" loading="lazy" onerror="this.parentElement.style.display='none'">
+          <img src="${optimizeUrl(url, 150, 60)}" alt="Foto ${i+1}" loading="lazy" onerror="this.parentElement.style.display='none'">
         </div>
       `).join('');
     }

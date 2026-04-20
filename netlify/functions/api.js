@@ -380,19 +380,23 @@ exports.handler = async (event) => {
   try {
     if (httpMethod === 'GET') {
       let query = table;
-      const params = [];
+      const params = new URLSearchParams(event.queryStringParameters || {});
 
       if (recordId) {
-        params.push(`id=eq.${recordId}`);
+        params.set('id', `eq.${recordId}`);
       }
 
-      // Optional ordering
-      if (table === 'vehicles') params.push('order=created_at.desc');
-      if (table === 'leads') params.push('order=created_at.desc');
-      if (table === 'audit_logs') params.push('order=created_at.desc', 'limit=200');
-      if (table === 'branches') params.push('order=name.asc');
+      // Default ordering if not provided
+      if (table === 'vehicles' && !params.has('order')) params.set('order', 'created_at.desc');
+      if (table === 'leads' && !params.has('order')) params.set('order', 'created_at.desc');
+      if (table === 'audit_logs' && !params.has('order')) {
+        params.set('order', 'created_at.desc');
+        if (!params.has('limit')) params.set('limit', '200');
+      }
+      if (table === 'branches' && !params.has('order')) params.set('order', 'name.asc');
 
-      query += params.length ? '?' + params.join('&') : '';
+      const queryString = params.toString();
+      if (queryString) query += '?' + queryString;
 
       const data = await sb(query, { method: 'GET', prefer: '' });
       // Supabase returns array; for single record return object

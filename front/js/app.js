@@ -132,11 +132,19 @@ function showToast(title, message = '', type = 'default') {
 const db = window.SupabaseClient;
 
 async function fetchVehicles({ limit = 100 } = {}) {
-  const data = await db.select('vehicles', { order: 'created_at.desc', limit });
-  return data; // Returns array directly
+  // Optimizamos: Pedimos solo campos necesarios para la grilla
+  // Evitamos 'description' y 'internal_notes' que pueden ser pesados
+  const selectFields = 'id,brand,model,year,version,price,down_payment,status,fuel_type,transmission,doors,mileage,is_featured,created_at,branch_id,photos';
+  const data = await db.select('vehicles', { 
+    select: selectFields,
+    order: 'created_at.desc', 
+    limit 
+  });
+  return data;
 }
 
 async function fetchVehicleById(id) {
+  // Para el detalle sí pedimos todo (*)
   return db.selectById('vehicles', id);
 }
 
@@ -172,7 +180,20 @@ const isStaff = !!getStaffSession();
 // ============================================================
 function renderVehicleCard(v) {
   const status = getStatusLabel(v.status || 'disponible');
-  const photos = Array.isArray(v.photos) && v.photos.length ? v.photos.slice(0, 8) : ['https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80'];
+  
+  // Optimizamos fotos: Límite de 8 y usamos transformación de Supabase (ancho 600, calidad 75)
+  // Esto reduce el peso de cada imagen descargada drásticamente.
+  const optimizeUrl = (url) => {
+    if (url && url.includes('/storage/v1/render/image/public/')) {
+      return `${url}?width=600&quality=75&format=webp`;
+    }
+    return url;
+  };
+
+  const photos = Array.isArray(v.photos) && v.photos.length 
+    ? v.photos.slice(0, 8).map(optimizeUrl) 
+    : ['https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80'];
+
   const branch = branchesMap[v.branch_id];
   const branchName = branch ? branch.city || branch.name : 'Tristán Suárez';
   const isAvailable = v.status === 'disponible' || !v.status;
