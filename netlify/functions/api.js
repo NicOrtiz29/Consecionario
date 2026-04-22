@@ -52,17 +52,46 @@ function json(statusCode, body) {
   return { statusCode, headers, body: JSON.stringify(body) };
 }
 
-// ── Simple token store (stateless JWT-like via signed payload) ────────────────
-// For simplicity we use a signed base64 payload. Not cryptographic — RLS handles real security.
+const crypto = require('crypto');
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-keep-it-safe';
+
+// ── Secure Token System (HMAC-SHA256) ────────────────────────────────────────
 function makeToken(user) {
-  const payload = { id: user.id, username: user.username, role: user.role, ts: Date.now() };
-  return Buffer.from(JSON.stringify(payload)).toString('base64');
+  const payload = JSON.stringify({ 
+    id: user.id, 
+    username: user.username, 
+    role: user.role, 
+    ts: Date.now() 
+  });
+  const payloadBase64 = Buffer.from(payload).toString('base64url');
+  const signature = crypto
+    .createHmac('sha256', JWT_SECRET)
+    .update(payloadBase64)
+    .digest('base64url');
+  
+  return `${payloadBase64}.${signature}`;
 }
 
 function parseToken(token) {
+  if (!token) return null;
   try {
-    return JSON.parse(Buffer.from(token, 'base64').toString('utf8'));
-  } catch { return null; }
+    const [payloadBase64, signature] = token.split('.');
+    if (!payloadBase64 || !signature) return null;
+
+    const expectedSignature = crypto
+      .createHmac('sha256', JWT_SECRET)
+      .update(payloadBase64)
+      .digest('base64url');
+
+    if (signature !== expectedSignature) {
+      console.warn('[Auth] Intento de acceso con token manipulado');
+      return null;
+    }
+
+    return JSON.parse(Buffer.from(payloadBase64, 'base64url').toString('utf8'));
+  } catch (err) {
+    return null;
+  }
 }
 
 function getTokenFromEvent(event) {
