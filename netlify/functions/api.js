@@ -25,8 +25,35 @@ const headers = {
 };
 
 // ── Supabase REST helper ──────────────────────────────────────────────────────
-async function sb(path, options = {}) {
-  const url = `${SUPABASE_URL}/rest/v1/${path}`;
+async function sb(path, options = {}, empresaId = null) {
+  let url = `${SUPABASE_URL}/rest/v1/${path}`;
+
+  // Auto-injection of multi-tenancy context
+  if (empresaId) {
+    const isGet = !options.method || options.method === 'GET';
+    const isWrite = options.method === 'POST' || options.method === 'PATCH';
+
+    if (isGet) {
+      const sep = url.includes('?') ? '&' : '?';
+      // Only append if not already present in query params
+      if (!url.includes('empresa_id=')) {
+        url += `${sep}empresa_id=eq.${empresaId}`;
+      }
+    }
+
+    if (isWrite && options.body) {
+      try {
+        let data = JSON.parse(options.body);
+        if (Array.isArray(data)) {
+          data.forEach(item => { item.empresa_id = empresaId; });
+        } else {
+          data.empresa_id = empresaId;
+        }
+        options.body = JSON.stringify(data);
+      } catch (e) { /* ignore if not JSON */ }
+    }
+  }
+
   const res = await fetch(url, {
     ...options,
     headers: {
@@ -60,7 +87,8 @@ function makeToken(user) {
   const payload = JSON.stringify({ 
     id: user.id, 
     username: user.username, 
-    role: user.role, 
+    role: user.role,
+    empresa_id: user.empresa_id,
     ts: Date.now() 
   });
   const payloadBase64 = Buffer.from(payload).toString('base64url');
@@ -115,6 +143,7 @@ async function logAction(payload, action, table, targetId, details = {}, targetN
       body: JSON.stringify({
         user_id: payload.id,
         username: payload.username,
+        empresa_id: payload.empresa_id,
         action: action,
         target_table: table,
         target_id: String(targetId || 'N/A'),
@@ -134,6 +163,7 @@ exports.handler = async (event) => {
   const { httpMethod, path: rawPath, body: rawBody } = event;
   const token = getTokenFromEvent(event);
   const tokenPayload = parseToken(token);
+  const empresaId = tokenPayload?.empresa_id || null;
 
   // CORS preflight
   if (httpMethod === 'OPTIONS') {
@@ -153,7 +183,7 @@ exports.handler = async (event) => {
 
   // ── Health ──────────────────────────────────────────────────────────────────
   if (rel === '/' || rel === '') {
-    return json(200, { status: 'API Online', version: '4.0.0-supabase' });
+    return json(200, { status: 'API Online', version: '5.0.0-multi-tenant' });
   }
 
   // ── Alarfin proxy ───────────────────────────────────────────────────────────
@@ -183,8 +213,6 @@ exports.handler = async (event) => {
     }
 
     try {
-      // Use FormData with the Unsigned Upload Preset
-      // We also include the api_key just to help Cloudinary identify the account faster
       const formData = new FormData();
       formData.append('file', image); 
       formData.append('upload_preset', 'lurpwvnj');
@@ -196,43 +224,47 @@ exports.handler = async (event) => {
       });
 
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error?.message || 'Error en Cloudinary');
-      }
+      if (!response.ok) throw new Error(result.error?.message || 'Error en Cloudinary');
 
       const url = result.secure_url;
-      // AUDIT: log image upload
       await logAction(tokenPayload, 'UPLOAD_IMAGE', 'vehicles', 'N/A', { url });
 
       return json(200, { url });
     } catch (err) {
       console.error('[Upload Error]', err.message);
-      return json(500, { 
-        error: 'Error al subir imagen', 
-        details: err.message,
-        type: 'CLOUDINARY_ERROR'
-      });
+      return json(500, { error: 'Error al subir imagen', details: err.message });
     }
   }
 
 
   // ── Auth: Login ─────────────────────────────────────────────────────────────
   if (rel === '/auth/login' && httpMethod === 'POST') {
-    const { username, password } = body;
+    const { username, password, hostname } = body;
     if (!username || !password) return json(400, { error: 'Credenciales requeridas' });
 
     try {
+      // 1. Identify Empresa by hostname
+      const targetHost = hostname || 'bbrunoautomotores.netlify.app';
+      const empresas = await sb(`empresas?dominio=eq.${encodeURIComponent(targetHost)}&select=*`, { method: 'GET' });
+      let empresa = Array.isArray(empresas) ? empresas[0] : null;
+
+      // Fallback for development
+      if (!empresa && (targetHost.includes('localhost') || targetHost.includes('127.0.0.1'))) {
+        empresa = { id: 1, nombre: 'BBruno (Local Dev)' };
+      }
+
+      if (!empresa) {
+        return json(404, { error: 'Este dominio no está asociado a ninguna empresa registrada.' });
+      }
+
+      // 2. Find user within that company
       const users = await sb(
-        `admin_users?username=eq.${encodeURIComponent(username)}&is_active=eq.true&select=*`,
+        `admin_users?username=eq.${encodeURIComponent(username)}&empresa_id=eq.${empresa.id}&is_active=eq.true&select=*`,
         { method: 'GET', prefer: '' }
       );
 
       const user = Array.isArray(users) ? users[0] : null;
-
-      if (!user) {
-        return json(401, { error: 'Usuario o contraseña incorrectos' });
-      }
+      if (!user) return json(401, { error: 'Usuario o contraseña incorrectos' });
 
       let isValidPass = false;
       const bcrypt = require('bcryptjs');
@@ -242,23 +274,21 @@ exports.handler = async (event) => {
         isValidPass = (user.password_hash === password);
       }
 
-      if (!isValidPass) {
-        return json(401, { error: 'Usuario o contraseña incorrectos' });
-      }
+      if (!isValidPass) return json(401, { error: 'Usuario o contraseña incorrectos' });
 
       const safeUser = {
         id: user.id,
         username: user.username,
         full_name: user.full_name,
         role: user.role,
+        empresa_id: user.empresa_id,
         is_active: user.is_active
       };
 
       const token = makeToken(safeUser);
-      // AUDIT: log login
       await logAction(safeUser, 'LOGIN', 'auth', user.id);
       
-      return json(200, { user: safeUser, token });
+      return json(200, { user: safeUser, token, empresa: { id: empresa.id, nombre: empresa.nombre } });
     } catch (err) {
       console.error('[Auth/Login]', err.message);
       return json(500, { error: 'Error en el servidor al autenticar' });
@@ -267,15 +297,13 @@ exports.handler = async (event) => {
 
   // ── Auth: Verify ─────────────────────────────────────────────────────────────
   if (rel === '/auth/verify' && httpMethod === 'GET') {
-    const token = getTokenFromEvent(event);
     if (!token) return json(401, { error: 'Token requerido' });
-
     const payload = parseToken(token);
     if (!payload?.id) return json(401, { error: 'Token inválido' });
 
     try {
       const users = await sb(
-        `admin_users?id=eq.${payload.id}&is_active=eq.true&select=id,username,full_name,role,is_active`,
+        `admin_users?id=eq.${payload.id}&empresa_id=eq.${payload.empresa_id}&is_active=eq.true&select=id,username,full_name,role,is_active,empresa_id`,
         { method: 'GET', prefer: '' }
       );
       const user = Array.isArray(users) ? users[0] : null;
@@ -289,11 +317,8 @@ exports.handler = async (event) => {
 
   // ── Admin: Users CRUD ────────────────────────────────────────────────────────
   if (rel.startsWith('/admin/users')) {
-    // Auth guard — superadmin and administrador can manage users
-    const token = getTokenFromEvent(event);
-    const payload = parseToken(token);
-    const userRole = String(payload?.role || '').toLowerCase();
-    if (!payload || (userRole !== 'superadmin' && userRole !== 'administrador')) {
+    const userRole = String(tokenPayload?.role || '').toLowerCase();
+    if (!tokenPayload || (userRole !== 'superadmin' && userRole !== 'administrador')) {
       return json(403, { error: 'Solo administradores pueden gestionar usuarios' });
     }
 
@@ -304,14 +329,12 @@ exports.handler = async (event) => {
       if (httpMethod === 'GET') {
         let users = await sb(
           'admin_users?select=id,username,full_name,role,is_active,created_at&order=created_at.asc',
-          { method: 'GET', prefer: '' }
+          { method: 'GET', prefer: '' },
+          empresaId
         );
-        
-        // Filter out superadmins if requester is not a superadmin
         if (!isSuperRequester) {
           users = users.filter(u => String(u.role).toLowerCase() !== 'superadmin');
         }
-        
         return json(200, users);
       }
 
@@ -319,11 +342,9 @@ exports.handler = async (event) => {
         const { username, full_name, role, is_active, password } = body;
         const targetRole = String(role || '').toLowerCase();
 
-        // Restriction: Only superadmins can create admins/superadmins
         if (!isSuperRequester && (targetRole === 'superadmin' || targetRole === 'administrador')) {
            return json(403, { error: 'No tenés permisos para crear usuarios con este rol' });
         }
-
         if (!username || !password) return json(400, { error: 'username y password son requeridos' });
 
         const bcrypt = require('bcryptjs');
@@ -336,10 +357,11 @@ exports.handler = async (event) => {
             full_name: full_name || '',
             role: role || 'vendedor',
             is_active: is_active !== false,
-            password_hash: finalPasswordToSave
+            password_hash: finalPasswordToSave,
+            empresa_id: empresaId
           }),
           prefer: 'return=representation'
-        });
+        }, empresaId);
         const finalUser = Array.isArray(newUser) ? newUser[0] : newUser;
         await logAction(tokenPayload, 'CREATE_USER', 'admin_users', finalUser?.id, { username: finalUser?.username, role: finalUser?.role });
         return json(201, finalUser);
@@ -347,8 +369,6 @@ exports.handler = async (event) => {
 
       if (httpMethod === 'PATCH' && userId) {
         const targetRole = String(body.role || '').toLowerCase();
-        
-        // Restriction: Only superadmins can promote to admin/superadmin
         if (!isSuperRequester && (targetRole === 'superadmin' || targetRole === 'administrador')) {
           return json(403, { error: 'No tenés permisos para asignar este rol' });
         }
@@ -366,26 +386,23 @@ exports.handler = async (event) => {
           method: 'PATCH',
           body: JSON.stringify(update),
           prefer: 'return=representation'
-        });
+        }, empresaId);
         const finalUpdate = Array.isArray(updated) ? updated[0] : updated;
         await logAction(tokenPayload, 'UPDATE_USER', 'admin_users', userId, { username: finalUpdate?.username, role: finalUpdate?.role });
         return json(200, finalUpdate);
       }
 
       if (httpMethod === 'DELETE' && userId) {
-        // Validation: Cannot delete a superadmin if not superadmin
         if (!isSuperRequester) {
-          const target = await sb(`admin_users?id=eq.${userId}&select=role,username`, { method: 'GET', prefer: '' });
+          const target = await sb(`admin_users?id=eq.${userId}&select=role,username`, { method: 'GET' }, empresaId);
           if (target && target[0] && String(target[0].role).toLowerCase() === 'superadmin') {
             return json(403, { error: 'No podés eliminar a un Superadmin' });
           }
         }
-
-        await sb(`admin_users?id=eq.${userId}`, { method: 'DELETE', prefer: '' });
+        await sb(`admin_users?id=eq.${userId}`, { method: 'DELETE' }, empresaId);
         await logAction(tokenPayload, 'DELETE_USER', 'admin_users', userId);
         return json(200, { success: true });
       }
-
       return json(405, { error: 'Método no permitido' });
     } catch (err) {
       console.error('[Admin/Users]', err.message);
@@ -400,7 +417,6 @@ exports.handler = async (event) => {
   const recordId = parts[1];
   const isUpsert = rel.includes('/upsert');
 
-  // Allowed tables
   const ALLOWED = ['vehicles', 'leads', 'maintenance', 'branches', 'admin_users', 'audit_logs'];
   if (!table || !ALLOWED.includes(table)) {
     return json(404, { error: 'Tabla no encontrada', path: rel });
@@ -410,12 +426,8 @@ exports.handler = async (event) => {
     if (httpMethod === 'GET') {
       let query = table;
       const params = new URLSearchParams(event.queryStringParameters || {});
+      if (recordId) params.set('id', `eq.${recordId}`);
 
-      if (recordId) {
-        params.set('id', `eq.${recordId}`);
-      }
-
-      // Default ordering if not provided
       if (table === 'vehicles' && !params.has('order')) params.set('order', 'created_at.desc');
       if (table === 'leads' && !params.has('order')) params.set('order', 'created_at.desc');
       if (table === 'audit_logs' && !params.has('order')) {
@@ -427,32 +439,37 @@ exports.handler = async (event) => {
       const queryString = params.toString();
       if (queryString) query += '?' + queryString;
 
-      const data = await sb(query, { method: 'GET', prefer: '' });
-      // Supabase returns array; for single record return object
-      if (recordId && Array.isArray(data)) {
-        return json(200, data[0] || {});
-      }
+      const data = await sb(query, { method: 'GET', prefer: '' }, empresaId);
+      if (recordId && Array.isArray(data)) return json(200, data[0] || {});
       return json(200, data);
     }
 
     if (httpMethod === 'POST') {
+      if (!empresaId && table !== 'leads') return json(403, { error: 'No tienes permiso para escribir sin una sesión de empresa activa' });
+      
+      // Si es un Lead público, intentamos detectar la empresa por el hostname si no hay token
+      let effectiveEmpresaId = empresaId;
+      if (!effectiveEmpresaId && table === 'leads') {
+          const targetHost = event.headers?.host || 'bbrunoautomotores.netlify.app';
+          const empresas = await sb(`empresas?dominio=eq.${encodeURIComponent(targetHost)}&select=id`, { method: 'GET' });
+          effectiveEmpresaId = empresas[0]?.id || 1;
+      }
+
       if (isUpsert) {
-        // Upsert on patent conflict (for Excel import)
-        const result = await sb(`${table}?on_conflict=patent`, {
+        const result = await sb(`${table}?on_conflict=empresa_id,patent`, {
           method: 'POST',
           body: JSON.stringify(body),
-          prefer: 'return=representation',
           headers: { 'Prefer': 'return=representation,resolution=merge-duplicates' }
-        });
+        }, effectiveEmpresaId);
         const finalData = Array.isArray(result) ? result[0] : result;
         await logAction(tokenPayload, 'UPDATE/UPSERT', table, finalData?.id || body.patent, body);
         return json(200, finalData);
       }
+
       const result = await sb(table, {
         method: 'POST',
         body: JSON.stringify(body),
-        prefer: 'return=representation'
-      });
+      }, effectiveEmpresaId);
       const finalData = Array.isArray(result) ? result[0] : result;
       await logAction(tokenPayload, 'CREATE', table, finalData?.id, body);
       return json(201, finalData);
@@ -462,21 +479,18 @@ exports.handler = async (event) => {
       const result = await sb(`${table}?id=eq.${recordId}`, {
         method: 'PATCH',
         body: JSON.stringify(body),
-        prefer: 'return=representation'
-      });
+      }, empresaId);
       const finalData = Array.isArray(result) ? result[0] : result;
       await logAction(tokenPayload, 'UPDATE', table, recordId, body);
       return json(200, finalData);
     }
 
     if (httpMethod === 'DELETE' && recordId) {
-      await sb(`${table}?id=eq.${recordId}`, { method: 'DELETE', prefer: '' });
+      await sb(`${table}?id=eq.${recordId}`, { method: 'DELETE' }, empresaId);
       await logAction(tokenPayload, 'DELETE', table, recordId);
       return json(200, { success: true });
     }
-
     return json(405, { error: 'Método no soportado' });
-
   } catch (err) {
     console.error(`[Tables/${table}]`, err.message);
     return json(500, { error: err.message });

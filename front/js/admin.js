@@ -62,10 +62,11 @@ let currentUser = null;
 function getSession() {
   try { return JSON.parse(localStorage.getItem(AUTH_KEY)); } catch { return null; }
 }
-function setSession(user, tokens = {}) {
+function setSession(user, tokens = {}, empresa = null) {
   localStorage.setItem(AUTH_KEY, JSON.stringify(user));
   if (tokens.token) localStorage.setItem(TOKEN_KEY, tokens.token);
   if (tokens.refreshToken) localStorage.setItem(REFRESH_KEY, tokens.refreshToken);
+  if (empresa) localStorage.setItem('current_empresa', JSON.stringify(empresa));
 }
 function clearSession() {
   localStorage.removeItem(AUTH_KEY);
@@ -103,14 +104,18 @@ async function doLogin(username, password) {
     const res = await fetch(`${window.APP_CONFIG.API_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ 
+        username, 
+        password, 
+        hostname: window.location.hostname 
+      })
     });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || 'Error al iniciar sesión');
     }
     const data = await res.json();
-    setSession(data.user, data);
+    setSession(data.user, data, data.empresa);
     return data.user;
   } catch (err) {
     console.warn('[Auth] Login API falló:', err.message);
@@ -1546,6 +1551,19 @@ async function initAdmin(user) {
   const ua = $('#userAvatar'); if (ua) ua.textContent = (user.full_name||'A')[0].toUpperCase();
   const un = $('#userName'); if (un) un.textContent = user.full_name || user.username;
   const ur = $('#userRole'); if (ur) ur.textContent = user.role || '';
+
+  // Actualizar branding de empresa
+  const empresaData = localStorage.getItem('current_empresa');
+  if (empresaData) {
+    try {
+      const empresa = JSON.parse(empresaData);
+      if (empresa.nombre) {
+        document.title = `Panel Administrativo | ${empresa.nombre}`;
+        const compEl = $('#sidebarCompanyName');
+        if (compEl) compEl.textContent = empresa.nombre;
+      }
+    } catch(e) {}
+  }
 
   // Sidebar navigation
   $$('.sidebar-link[data-panel]').forEach(btn => {
