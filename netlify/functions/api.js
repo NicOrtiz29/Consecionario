@@ -1,498 +1,171 @@
-/**
- * Netlify Function: API Handler (v4.0 - Supabase Real Backend)
- * ========================================
- * Endpoints:
- *  - GET/POST/PATCH/DELETE  /api/tables/:table[/:id]
- *  - POST                   /api/auth/login
- *  - GET                    /api/auth/verify
- *  - GET/POST/PATCH/DELETE  /api/admin/users[/:id]
- *  - GET                    /api/alarfin-data
- */
+const { createClient } = require('@supabase/supabase-js');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+);
 
-// Cloudinary Config
-const CLOUDINARY_NAME = (process.env.CLOUDINARY_NAME || '').trim();
-const CLOUDINARY_API_KEY = (process.env.CLOUDINARY_API_KEY || '').trim();
-const CLOUDINARY_API_SECRET = (process.env.CLOUDINARY_API_SECRET || '').trim();
+const JWT_SECRET = process.env.JWT_SECRET || 'bbruno_secret_key_2024_safe';
+const PUBLIC_TABLES = ['vehicles', 'branches', 'leads', 'maintenance'];
 
-const headers = {
+const securityHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Empresa-Id',
   'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-  'Content-Type': 'application/json'
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block',
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Content-Security-Policy': "default-src 'self'; script-src 'self'; object-src 'none';"
 };
 
-// ── Supabase REST helper ──────────────────────────────────────────────────────
-async function sb(path, options = {}, empresaId = null) {
-  let url = `${SUPABASE_URL}/rest/v1/${path}`;
-
-  // Auto-injection of multi-tenancy context
-  if (empresaId) {
-    const isGet = !options.method || options.method === 'GET';
-    const isWrite = options.method === 'POST' || options.method === 'PATCH';
-
-    if (isGet) {
-      const sep = url.includes('?') ? '&' : '?';
-      // Only append if not already present in query params
-      if (!url.includes('empresa_id=')) {
-        url += `${sep}empresa_id=eq.${empresaId}`;
-      }
-    }
-
-    if (isWrite && options.body) {
-      try {
-        let data = JSON.parse(options.body);
-        if (Array.isArray(data)) {
-          data.forEach(item => { item.empresa_id = empresaId; });
-        } else {
-          data.empresa_id = empresaId;
-        }
-        options.body = JSON.stringify(data);
-      } catch (e) { /* ignore if not JSON */ }
-    }
-  }
-
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'apikey': SUPABASE_KEY,
-      'Authorization': `Bearer ${SUPABASE_KEY}`,
-      'Content-Type': 'application/json',
-      'Prefer': options.prefer || 'return=representation',
-      ...(options.headers || {})
-    }
-  });
-
-  const text = await res.text();
-  let data;
-  try { data = JSON.parse(text); } catch { data = text; }
-
-  if (!res.ok) {
-    throw new Error(data?.message || data?.error || `Supabase error ${res.status}`);
-  }
-  return data;
-}
-
-function json(statusCode, body) {
-  return { statusCode, headers, body: JSON.stringify(body) };
-}
-
-const crypto = require('crypto');
-const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-keep-it-safe';
-
-// ── Secure Token System (HMAC-SHA256) ────────────────────────────────────────
-function makeToken(user) {
-  const payload = JSON.stringify({ 
-    id: user.id, 
-    username: user.username, 
-    role: user.role,
-    empresa_id: user.empresa_id,
-    ts: Date.now() 
-  });
-  const payloadBase64 = Buffer.from(payload).toString('base64url');
-  const signature = crypto
-    .createHmac('sha256', JWT_SECRET)
-    .update(payloadBase64)
-    .digest('base64url');
-  
-  return `${payloadBase64}.${signature}`;
-}
-
-function parseToken(token) {
-  if (!token) return null;
+async function logAction(user, action, table, targetId, details = {}, targetName = null) {
   try {
-    const [payloadBase64, signature] = token.split('.');
-    if (!payloadBase64 || !signature) return null;
-
-    const expectedSignature = crypto
-      .createHmac('sha256', JWT_SECRET)
-      .update(payloadBase64)
-      .digest('base64url');
-
-    if (signature !== expectedSignature) {
-      console.warn('[Auth] Intento de acceso con token manipulado');
-      return null;
-    }
-
-    return JSON.parse(Buffer.from(payloadBase64, 'base64url').toString('utf8'));
-  } catch (err) {
-    return null;
-  }
+    await supabase.from('audit_logs').insert([{
+      user_id: user.id, username: user.username, empresa_id: user.empresa_id,
+      action, target_table: table, target_id: String(targetId),
+      target_name: targetName || (details?.patent || details?.nombre || null),
+      details, created_at: new Date().toISOString()
+    }]);
+  } catch (err) { console.error('[Audit Error]:', err.message); }
 }
 
-function getTokenFromEvent(event) {
-  const auth = event.headers?.authorization || event.headers?.Authorization || '';
-  if (auth.startsWith('Bearer ')) return auth.slice(7);
-  return null;
-}
-
-// ── Audit: Recording actions ──────────────────────────────────────────────────
-async function logAction(payload, action, table, targetId, details = {}, targetName = null) {
-  try {
-    if (!payload?.username) return;
-    
-    // Auto-detección de nombre para vehículos e identificación básica
-    if (!targetName && table === 'vehicles' && details) {
-       targetName = details.patent || (details.brand ? `${details.brand} ${details.model}` : null);
-    }
-
-    await sb('audit_logs', {
-      method: 'POST',
-      body: JSON.stringify({
-        user_id: payload.id,
-        username: payload.username,
-        empresa_id: payload.empresa_id,
-        action: action,
-        target_table: table,
-        target_id: String(targetId || 'N/A'),
-        target_name: targetName || null,
-        details: typeof details === 'object' ? details : { info: details },
-        created_at: new Date().toISOString()
-      }),
-      headers: { 'Prefer': 'return=minimal' }
-    });
-  } catch (err) {
-    console.warn('[Audit] Falló el registro:', err.message);
-  }
-}
-
-// ── Main handler ─────────────────────────────────────────────────────────────
 exports.handler = async (event) => {
-  const { httpMethod, path: rawPath, body: rawBody } = event;
-  const token = getTokenFromEvent(event);
-  const tokenPayload = parseToken(token);
-  const empresaId = tokenPayload?.empresa_id || null;
+  if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: securityHeaders };
 
-  // CORS preflight
-  if (httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers, body: '' };
-  }
+  const path = event.path.replace(/\.netlify\/functions\/api\/?/, '').replace(/^\/api\//, '');
+  const authHeader = event.headers.authorization;
+  let user = null;
 
-  // Normalise path → strip /api prefix
-  let rel = rawPath || '';
-  if (rel.startsWith('/.netlify/functions/api')) rel = rel.substring('/.netlify/functions/api'.length);
-  else if (rel.startsWith('/api')) rel = rel.substring('/api'.length);
-  if (!rel) rel = '/';
-
-  let body = {};
-  if (rawBody) {
-    try { body = JSON.parse(rawBody); } catch { body = {}; }
-  }
-
-  // ── Health ──────────────────────────────────────────────────────────────────
-  if (rel === '/' || rel === '') {
-    return json(200, { status: 'API Online', version: '5.0.0-multi-tenant' });
-  }
-
-  // ── Alarfin proxy ───────────────────────────────────────────────────────────
-  if (rel === '/alarfin-data' && httpMethod === 'GET') {
+  if (authHeader) {
     try {
-      const r = await fetch('https://simulador.alarfin.com.ar/datos');
-      if (!r.ok) throw new Error('Alarfin not ok');
-      const d = await r.json();
-      return json(200, d);
+      user = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
     } catch (err) {
-      return json(502, { error: 'Error conectando con Alarfin', details: err.message });
-    }
-  }
-
-  // ── Cloudinary: Upload ──────────────────────────────────────────────────
-  if (rel === '/upload-image' && httpMethod === 'POST') {
-    const { image } = body; // Base64 image
-    if (!image) return json(400, { error: 'Imagen requerida' });
-
-    // Check for missing env vars
-    if (!CLOUDINARY_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
-      console.error('[Upload] Missing Cloudinary environment variables');
-      return json(500, { 
-        error: 'Configuración incompleta', 
-        details: 'Faltan variables de entorno de Cloudinary en Netlify.' 
-      });
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append('file', image); 
-      formData.append('upload_preset', 'lurpwvnj');
-      formData.append('api_key', CLOUDINARY_API_KEY);
-
-      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_NAME}/image/upload`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error?.message || 'Error en Cloudinary');
-
-      const url = result.secure_url;
-      await logAction(tokenPayload, 'UPLOAD_IMAGE', 'vehicles', 'N/A', { url });
-
-      return json(200, { url });
-    } catch (err) {
-      console.error('[Upload Error]', err.message);
-      return json(500, { error: 'Error al subir imagen', details: err.message });
-    }
-  }
-
-
-  // ── Auth: Login ─────────────────────────────────────────────────────────────
-  if (rel === '/auth/login' && httpMethod === 'POST') {
-    const { username, password, hostname } = body;
-    if (!username || !password) return json(400, { error: 'Credenciales requeridas' });
-
-    try {
-      // 1. Identify Empresa by hostname
-      const targetHost = hostname || 'bbrunoautomotores.netlify.app';
-      const empresas = await sb(`empresas?dominio=eq.${encodeURIComponent(targetHost)}&select=*`, { method: 'GET' });
-      let empresa = Array.isArray(empresas) ? empresas[0] : null;
-
-      // Fallback for development
-      if (!empresa && (targetHost.includes('localhost') || targetHost.includes('127.0.0.1'))) {
-        empresa = { id: 1, nombre: 'BBruno (Local Dev)' };
+      if (!PUBLIC_TABLES.some(t => path.includes(t))) {
+        return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Sesión inválida' }) };
       }
-
-      if (!empresa) {
-        return json(404, { error: 'Este dominio no está asociado a ninguna empresa registrada.' });
-      }
-
-      // 2. Find user within that company
-      const users = await sb(
-        `admin_users?username=eq.${encodeURIComponent(username)}&empresa_id=eq.${empresa.id}&is_active=eq.true&select=*`,
-        { method: 'GET', prefer: '' }
-      );
-
-      const user = Array.isArray(users) ? users[0] : null;
-      if (!user) return json(401, { error: 'Usuario o contraseña incorrectos' });
-
-      let isValidPass = false;
-      const bcrypt = require('bcryptjs');
-      if (user.password_hash && (user.password_hash.startsWith('$2b$') || user.password_hash.startsWith('$2a$'))) {
-        isValidPass = bcrypt.compareSync(password, user.password_hash);
-      } else {
-        isValidPass = (user.password_hash === password);
-      }
-
-      if (!isValidPass) return json(401, { error: 'Usuario o contraseña incorrectos' });
-
-      const safeUser = {
-        id: user.id,
-        username: user.username,
-        full_name: user.full_name,
-        role: user.role,
-        empresa_id: user.empresa_id,
-        is_active: user.is_active
-      };
-
-      const token = makeToken(safeUser);
-      await logAction(safeUser, 'LOGIN', 'auth', user.id);
-      
-      return json(200, { user: safeUser, token, empresa: { id: empresa.id, nombre: empresa.nombre } });
-    } catch (err) {
-      console.error('[Auth/Login]', err.message);
-      return json(500, { error: 'Error en el servidor al autenticar' });
     }
-  }
-
-  // ── Auth: Verify ─────────────────────────────────────────────────────────────
-  if (rel === '/auth/verify' && httpMethod === 'GET') {
-    if (!token) return json(401, { error: 'Token requerido' });
-    const payload = parseToken(token);
-    if (!payload?.id) return json(401, { error: 'Token inválido' });
-
-    try {
-      const users = await sb(
-        `admin_users?id=eq.${payload.id}&empresa_id=eq.${payload.empresa_id}&is_active=eq.true&select=id,username,full_name,role,is_active,empresa_id`,
-        { method: 'GET', prefer: '' }
-      );
-      const user = Array.isArray(users) ? users[0] : null;
-      if (!user) return json(401, { error: 'Sesión inválida o usuario inactivo' });
-      return json(200, user);
-    } catch (err) {
-      console.error('[Auth/Verify]', err.message);
-      return json(500, { error: 'Error verificando sesión' });
-    }
-  }
-
-  // ── Admin: Users CRUD ────────────────────────────────────────────────────────
-  if (rel.startsWith('/admin/users')) {
-    const userRole = String(tokenPayload?.role || '').toLowerCase();
-    if (!tokenPayload || (userRole !== 'superadmin' && userRole !== 'administrador')) {
-      return json(403, { error: 'Solo administradores pueden gestionar usuarios' });
-    }
-
-    const userId = rel.replace('/admin/users', '').replace(/^\//, '') || null;
-    const isSuperRequester = userRole === 'superadmin';
-
-    try {
-      if (httpMethod === 'GET') {
-        let users = await sb(
-          'admin_users?select=id,username,full_name,role,is_active,created_at&order=created_at.asc',
-          { method: 'GET', prefer: '' },
-          empresaId
-        );
-        if (!isSuperRequester) {
-          users = users.filter(u => String(u.role).toLowerCase() !== 'superadmin');
-        }
-        return json(200, users);
-      }
-
-      if (httpMethod === 'POST') {
-        const { username, full_name, role, is_active, password } = body;
-        const targetRole = String(role || '').toLowerCase();
-
-        if (!isSuperRequester && (targetRole === 'superadmin' || targetRole === 'administrador')) {
-           return json(403, { error: 'No tenés permisos para crear usuarios con este rol' });
-        }
-        if (!username || !password) return json(400, { error: 'username y password son requeridos' });
-
-        const bcrypt = require('bcryptjs');
-        const finalPasswordToSave = bcrypt.hashSync(password, 10);
-
-        const newUser = await sb('admin_users', {
-          method: 'POST',
-          body: JSON.stringify({
-            username,
-            full_name: full_name || '',
-            role: role || 'vendedor',
-            is_active: is_active !== false,
-            password_hash: finalPasswordToSave,
-            empresa_id: empresaId
-          }),
-          prefer: 'return=representation'
-        }, empresaId);
-        const finalUser = Array.isArray(newUser) ? newUser[0] : newUser;
-        await logAction(tokenPayload, 'CREATE_USER', 'admin_users', finalUser?.id, { username: finalUser?.username, role: finalUser?.role });
-        return json(201, finalUser);
-      }
-
-      if (httpMethod === 'PATCH' && userId) {
-        const targetRole = String(body.role || '').toLowerCase();
-        if (!isSuperRequester && (targetRole === 'superadmin' || targetRole === 'administrador')) {
-          return json(403, { error: 'No tenés permisos para asignar este rol' });
-        }
-
-        const update = {};
-        if (body.full_name !== undefined) update.full_name = body.full_name;
-        if (body.role !== undefined) update.role = body.role;
-        if (body.is_active !== undefined) update.is_active = body.is_active;
-        if (body.password) {
-          const bcrypt = require('bcryptjs');
-          update.password_hash = bcrypt.hashSync(body.password, 10);
-        }
-
-        const updated = await sb(`admin_users?id=eq.${userId}`, {
-          method: 'PATCH',
-          body: JSON.stringify(update),
-          prefer: 'return=representation'
-        }, empresaId);
-        const finalUpdate = Array.isArray(updated) ? updated[0] : updated;
-        await logAction(tokenPayload, 'UPDATE_USER', 'admin_users', userId, { username: finalUpdate?.username, role: finalUpdate?.role });
-        return json(200, finalUpdate);
-      }
-
-      if (httpMethod === 'DELETE' && userId) {
-        if (!isSuperRequester) {
-          const target = await sb(`admin_users?id=eq.${userId}&select=role,username`, { method: 'GET' }, empresaId);
-          if (target && target[0] && String(target[0].role).toLowerCase() === 'superadmin') {
-            return json(403, { error: 'No podés eliminar a un Superadmin' });
-          }
-        }
-        await sb(`admin_users?id=eq.${userId}`, { method: 'DELETE' }, empresaId);
-        await logAction(tokenPayload, 'DELETE_USER', 'admin_users', userId);
-        return json(200, { success: true });
-      }
-      return json(405, { error: 'Método no permitido' });
-    } catch (err) {
-      console.error('[Admin/Users]', err.message);
-      return json(500, { error: err.message });
-    }
-  }
-
-  // ── Tables CRUD (vehicles, leads, maintenance, branches, audit_logs) ─────────
-  const cleanPath = rel.replace(/^\/tables/, '');
-  const parts = cleanPath.split('/').filter(Boolean);
-  const table = parts[0];
-  const recordId = parts[1];
-  const isUpsert = rel.includes('/upsert');
-
-  const ALLOWED = ['vehicles', 'leads', 'maintenance', 'branches', 'admin_users', 'audit_logs'];
-  if (!table || !ALLOWED.includes(table)) {
-    return json(404, { error: 'Tabla no encontrada', path: rel });
   }
 
   try {
-    if (httpMethod === 'GET') {
-      let query = table;
-      const params = new URLSearchParams(event.queryStringParameters || {});
-      if (recordId) params.set('id', `eq.${recordId}`);
-
-      if (table === 'vehicles' && !params.has('order')) params.set('order', 'created_at.desc');
-      if (table === 'leads' && !params.has('order')) params.set('order', 'created_at.desc');
-      if (table === 'audit_logs' && !params.has('order')) {
-        params.set('order', 'created_at.desc');
-        if (!params.has('limit')) params.set('limit', '200');
+    // ── AUTH: LOGIN ──
+    if (path === 'auth/login' && event.httpMethod === 'POST') {
+      const { username, password, hostname } = JSON.parse(event.body);
+      let empresaId = 1;
+      if (hostname && !hostname.includes('localhost')) {
+        const { data: emp } = await supabase.from('empresas').select('id').eq('dominio', hostname).maybeSingle();
+        if (emp) empresaId = emp.id;
       }
-      if (table === 'branches' && !params.has('order')) params.set('order', 'name.asc');
+      const { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
+      if (!empresa) return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'Empresa no encontrada' }) };
 
-      const queryString = params.toString();
-      if (queryString) query += '?' + queryString;
+      const { data: dbUser } = await supabase.from('admin_users').select('*').eq('username', username).eq('empresa_id', empresa.id).eq('is_active', true).single();
+      if (!dbUser) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
 
-      const data = await sb(query, { method: 'GET', prefer: '' }, empresaId);
-      if (recordId && Array.isArray(data)) return json(200, data[0] || {});
-      return json(200, data);
+      const valid = dbUser.password_hash.startsWith('$2') ? await bcrypt.compare(password, dbUser.password_hash) : (password === dbUser.password_hash);
+      if (!valid) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
+
+      const token = jwt.sign({ id: dbUser.id, username: dbUser.username, role: dbUser.role, empresa_id: empresa.id }, JWT_SECRET, { expiresIn: '8h' });
+      return { statusCode: 200, headers: securityHeaders, body: JSON.stringify({ token, user: { id: dbUser.id, username: dbUser.username, role: dbUser.role, full_name: dbUser.full_name }, empresa: { id: empresa.id, nombre: empresa.nombre } }) };
     }
 
-    if (httpMethod === 'POST') {
-      if (!empresaId && table !== 'leads') return json(403, { error: 'No tienes permiso para escribir sin una sesión de empresa activa' });
+    // ── EMPRESAS / USERS (ADMIN) ──
+    if (path.startsWith('admin/')) {
+      if (!user || (user.role !== 'superadmin' && user.role !== 'admin')) {
+        return { statusCode: 403, headers: securityHeaders, body: JSON.stringify({ error: 'No permitido' }) };
+      }
       
-      // Si es un Lead público, intentamos detectar la empresa por el hostname si no hay token
-      let effectiveEmpresaId = empresaId;
-      if (!effectiveEmpresaId && table === 'leads') {
-          const targetHost = event.headers?.host || 'bbrunoautomotores.netlify.app';
-          const empresas = await sb(`empresas?dominio=eq.${encodeURIComponent(targetHost)}&select=id`, { method: 'GET' });
-          effectiveEmpresaId = empresas[0]?.id || 1;
+      const subPath = path.replace('admin/', '');
+      const [table, id] = subPath.split('/');
+
+      // GET LIST
+      if (event.httpMethod === 'GET') {
+        let q = supabase.from(table).select('*');
+        if (table === 'admin_users') {
+          let targetEmpresa = user.empresa_id;
+          if (user.role === 'superadmin' && event.headers['x-empresa-id']) targetEmpresa = Number(event.headers['x-empresa-id']);
+          q = q.eq('empresa_id', targetEmpresa);
+        }
+        const { data, error } = await q.order(table === 'empresas' ? 'nombre' : 'username');
+        if (error) throw error;
+        return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data) };
       }
 
-      if (isUpsert) {
-        const result = await sb(`${table}?on_conflict=empresa_id,patent`, {
-          method: 'POST',
-          body: JSON.stringify(body),
-          headers: { 'Prefer': 'return=representation,resolution=merge-duplicates' }
-        }, effectiveEmpresaId);
-        const finalData = Array.isArray(result) ? result[0] : result;
-        await logAction(tokenPayload, 'UPDATE/UPSERT', table, finalData?.id || body.patent, body);
-        return json(200, finalData);
+      // POST / PATCH
+      const body = event.body ? JSON.parse(event.body) : {};
+      if (event.httpMethod === 'POST') {
+        if (table === 'admin_users' && body.password) {
+          body.password_hash = await bcrypt.hash(body.password, 10);
+          delete body.password;
+          if (user.role === 'superadmin' && event.headers['x-empresa-id']) body.empresa_id = Number(event.headers['x-empresa-id']);
+          else body.empresa_id = user.empresa_id;
+        }
+        const { data, error } = await supabase.from(table).insert([body]).select();
+        if (error) throw error;
+        return { statusCode: 201, headers: securityHeaders, body: JSON.stringify(data[0]) };
+      }
+      
+      if (event.httpMethod === 'PATCH' && id) {
+        if (table === 'admin_users' && body.password) {
+          body.password_hash = await bcrypt.hash(body.password, 10);
+          delete body.password;
+        }
+        const { data, error } = await supabase.from(table).update(body).eq('id', id).select();
+        if (error) throw error;
+        return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data[0]) };
+      }
+    }
+
+    // ── TABLES (GENERAL) ──
+    if (path.startsWith('tables/')) {
+      const subPath = path.replace('tables/', '');
+      const [table, id] = subPath.split('/');
+      let empresaId = user?.empresa_id || 1;
+      if (user?.role === 'superadmin' && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
+
+      if (event.httpMethod === 'GET') {
+        if (table === 'audit_logs') {
+          if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
+          const { data, error } = await supabase.from('audit_logs').select('*').eq('empresa_id', empresaId).order('created_at', { ascending: false }).limit(100);
+          if (error) throw error;
+          return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data) };
+        }
+        
+        const { data, error } = await supabase.from(table).select('*').eq('empresa_id', empresaId).order(table === 'branches' ? 'id' : 'created_at', { ascending: false });
+        if (error) throw error;
+        return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data) };
       }
 
-      const result = await sb(table, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      }, effectiveEmpresaId);
-      const finalData = Array.isArray(result) ? result[0] : result;
-      await logAction(tokenPayload, 'CREATE', table, finalData?.id, body);
-      return json(201, finalData);
+      if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
+
+      if (event.httpMethod === 'POST') {
+        const payload = { ...JSON.parse(event.body), empresa_id: empresaId };
+        const { data, error } = await supabase.from(table).insert([payload]).select();
+        if (error) throw error;
+        await logAction(user, 'CREATE', table, data[0].id, payload);
+        return { statusCode: 201, headers: securityHeaders, body: JSON.stringify(data[0]) };
+      }
+
+      if (event.httpMethod === 'PATCH' && id) {
+        const payload = JSON.parse(event.body);
+        const { data, error } = await supabase.from(table).update(payload).eq('id', id).eq('empresa_id', empresaId).select();
+        if (error) throw error;
+        await logAction(user, 'UPDATE', table, id, payload);
+        return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data[0]) };
+      }
+
+      if (event.httpMethod === 'DELETE' && id) {
+        const { error } = await supabase.from(table).delete().eq('id', id).eq('empresa_id', empresaId);
+        if (error) throw error;
+        await logAction(user, 'DELETE', table, id);
+        return { statusCode: 200, headers: securityHeaders, body: JSON.stringify({ success: true }) };
+      }
     }
 
-    if (httpMethod === 'PATCH' && recordId) {
-      const result = await sb(`${table}?id=eq.${recordId}`, {
-        method: 'PATCH',
-        body: JSON.stringify(body),
-      }, empresaId);
-      const finalData = Array.isArray(result) ? result[0] : result;
-      await logAction(tokenPayload, 'UPDATE', table, recordId, body);
-      return json(200, finalData);
-    }
-
-    if (httpMethod === 'DELETE' && recordId) {
-      await sb(`${table}?id=eq.${recordId}`, { method: 'DELETE' }, empresaId);
-      await logAction(tokenPayload, 'DELETE', table, recordId);
-      return json(200, { success: true });
-    }
-    return json(405, { error: 'Método no soportado' });
+    return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'Ruta no encontrada' }) };
   } catch (err) {
-    console.error(`[Tables/${table}]`, err.message);
-    return json(500, { error: err.message });
+    return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: err.message }) };
   }
 };

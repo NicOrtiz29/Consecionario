@@ -72,6 +72,8 @@ function clearSession() {
   localStorage.removeItem(AUTH_KEY);
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_KEY);
+  localStorage.removeItem('active_empresa_id');
+  localStorage.removeItem('current_empresa');
 }
 
 function logout() {
@@ -146,6 +148,12 @@ async function apiFetch(endpoint, options = {}) {
   // Usamos la constante TOKEN_KEY que ya definimos arriba
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  
+  // Multi-tenancy context switching for superadmins
+  const activeOverride = localStorage.getItem('active_empresa_id');
+  if (activeOverride) {
+    headers['X-Empresa-Id'] = activeOverride;
+  }
   
   if (options.body && !(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
@@ -523,10 +531,11 @@ const panelTitles = {
   dashboard: ['Dashboard', 'Resumen del sistema'],
   vehicles: ['Inventario', 'Gestión de vehículos'],
   maintenance: ['Mantenimiento', 'Historial de servicios'],
-  leads: ['Consultas', 'Gestión de leads'],
+  leads: ['Consultas', 'Consultas de clientes'],
   branches: ['Sucursales', 'Gestión de sucursales'],
-  users: ['Usuarios', 'Gestión de acceso y seguridad'],
-  logs: ['Auditoría', 'Registro de movimientos y seguridad'],
+  users: ['Usuarios', 'Control de acceso'],
+  empresas: ['Empresas', 'Gestión multi-tenant'],
+  logs: ['Auditoría', 'Registro de actividades']
 };
 
 function isAdminRole(role) {
@@ -539,6 +548,10 @@ function isAdminRole(role) {
 }
 
 function switchPanel(name) {
+  if (name === 'empresas' && currentUser?.role !== 'superadmin') {
+    showToast('Acceso denegado', 'Solo superadmins pueden ver esta sección.', 'warning');
+    return;
+  }
   if ((name === 'users' || name === 'logs') && !isAdminRole(currentUser?.role)) {
     showToast('Acceso denegado', 'Solo administradores pueden ver esta sección.', 'warning');
     return;
@@ -566,6 +579,7 @@ function switchPanel(name) {
   if (name === 'branches') renderBranchesList(allBranches);
   if (name === 'users') loadUsers();
   if (name === 'logs') loadLogs();
+  if (name === 'empresas') loadEmpresas();
 }
 
 // ── Dashboard ──
@@ -1540,6 +1554,181 @@ async function loadLogs() {
   }
 }
 
+// ── Empresas (Superadmin) ──
+let allEmpresas = [];
+
+async function loadEmpresas() {
+  try {
+    const data = await apiFetch('/admin/empresas');
+    allEmpresas = data || [];
+    renderEmpresasTable();
+    populateCompanySwitcher();
+  } catch (err) {
+    console.error('[Empresas] Error:', err);
+  }
+}
+
+function renderEmpresasTable() {
+  const tbody = $('#empresasTableBody');
+  if (!tbody) return;
+  if (!allEmpresas.length) { tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No hay empresas registradas</td></tr>'; return; }
+
+  tbody.innerHTML = allEmpresas.map(e => `
+    <tr>
+      <td>${e.id}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:.75rem">
+          ${e.logo_url ? `<img src="${e.logo_url}" style="width:32px;height:32px;object-fit:contain;border-radius:4px;background:rgba(255,255,255,0.05)">` : '<div style="width:32px;height:32px;background:var(--color-gray);border-radius:4px;display:flex;align-items:center;justify-content:center"><i class="fas fa-city" style="font-size:.8rem"></i></div>'}
+          <span style="font-weight:700">${escapeHtml(e.nombre)}</span>
+        </div>
+      </td>
+      <td><span class="badge badge-info">${escapeHtml(e.dominio)}</span></td>
+      <td><span class="badge ${e.activo ? 'badge-success' : 'badge-danger'}">${e.activo ? 'Activa' : 'Inactiva'}</span></td>
+      <td>${formatDate(e.created_at)}</td>
+      <td>
+        <div style="display:flex;gap:.5rem">
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="openEmpresaModal(${e.id})" title="Editar"><i class="fas fa-pen"></i></button>
+          ${e.id != 1 ? `<button class="btn btn-danger btn-sm btn-icon" onclick="confirmDelete('admin/empresas','${e.id}','¿Eliminar empresa y todos sus datos? Esta acción es irreversible.', loadEmpresas)" title="Eliminar"><i class="fas fa-trash"></i></button>` : ''}
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function populateCompanySwitcher() {
+  const select = $('#companySwitcher');
+  if (!select) return;
+  const currentOverride = localStorage.getItem('active_empresa_id');
+  
+  let html = `<option value="">Empresa actual (${JSON.parse(localStorage.getItem('current_empresa')||'{}').nombre || 'Default'})</option>`;
+  html += allEmpresas.map(e => `
+    <option value="${e.id}" ${currentOverride == e.id ? 'selected' : ''}>${escapeHtml(e.nombre)}</option>
+  `).join('');
+  select.innerHTML = html;
+}
+
+window.handleLogoUpload = async function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    showToast('Subiendo logo...', 'Procesando imagen...', 'info');
+    
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+
+    const optimizedBase64 = await compressImage(base64, 800, 0.8);
+    const response = await fetch(optimizedBase64);
+    const blob = await response.blob();
+    const optimizedFile = new File([blob], `logo-${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+    const publicUrl = await uploadToSupabase(optimizedFile);
+    
+    $('#efLogo').value = publicUrl;
+    updateLogoPreview(publicUrl);
+    showToast('Logo subido', 'El logo se cargó correctamente.', 'success');
+  } catch (err) {
+    console.error('[Logo Upload]', err);
+    showToast('Error', 'No se pudo subir el logo.', 'error');
+  }
+};
+
+function updateLogoPreview(url) {
+  const preview = $('#efLogoPreview');
+  if (!preview) return;
+  if (url) {
+    preview.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:contain">`;
+  } else {
+    preview.innerHTML = `<i class="fas fa-image" style="color:var(--color-gray);font-size:1.5rem"></i>`;
+  }
+}
+
+function openEmpresaModal(id = null) {
+  const form = $('#empresaForm');
+  if (form) form.reset();
+  $('#efId').value = '';
+  $('#empresaModalTitle').textContent = id ? 'Editar Empresa' : 'Nueva Empresa';
+  updateLogoPreview(null);
+
+  if (id) {
+    const e = allEmpresas.find(x => x.id == id);
+    if (e) {
+      $('#efId').value = e.id;
+      $('#efNombre').value = e.nombre;
+      $('#efDominio').value = e.dominio;
+      $('#efLogo').value = e.logo_url || '';
+      updateLogoPreview(e.logo_url);
+      $('#efActivo').checked = !!e.activo;
+    }
+  }
+  openModal('empresaModal');
+}
+
+async function saveEmpresa() {
+  const id = $('#efId').value;
+  const data = {
+    nombre: $('#efNombre').value.trim(),
+    dominio: $('#efDominio').value.trim(),
+    logo_url: $('#efLogo').value.trim() || null,
+    activo: $('#efActivo').checked
+  };
+
+  if (!data.nombre || !data.dominio) {
+    showToast('Campos requeridos', 'El nombre y el dominio son obligatorios', 'warning');
+    return;
+  }
+
+  const btn = $('#btnSaveEmpresa');
+  btn.disabled = true;
+
+  try {
+    if (id) {
+      await apiFetch(`/admin/empresas/${id}`, { method: 'PATCH', body: data });
+      showToast('Actualizado', 'Empresa actualizada correctamente', 'success');
+    } else {
+      await apiFetch('/admin/empresas', { method: 'POST', body: data });
+      showToast('Creado', 'Nueva empresa registrada', 'success');
+    }
+    closeModal('empresaModal');
+    loadEmpresas();
+  } catch (err) {
+    showToast('Error', err.message, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function initSuperadminFeatures(user) {
+  if (user.role !== 'superadmin') return;
+
+  // Mostrar elementos para superadmin
+  $('#labelSystem').style.display = 'block';
+  $('#sidebarLinkEmpresas').style.display = 'flex';
+  $('#sidebarLinkUsers').style.display = 'flex';
+  $('#companySwitcherWrapper').style.display = 'flex';
+
+  // Eventos
+  $('#btnNewEmpresa')?.addEventListener('click', () => openEmpresaModal());
+  $('#btnSaveEmpresa')?.addEventListener('click', saveEmpresa);
+  $('#efLogo')?.addEventListener('input', (e) => updateLogoPreview(e.target.value));
+  $('#companySwitcher')?.addEventListener('change', (e) => {
+    const val = e.target.value;
+    if (val) {
+      localStorage.setItem('active_empresa_id', val);
+    } else {
+      localStorage.removeItem('active_empresa_id');
+    }
+    // Recargar para aplicar el cambio de contexto
+    location.reload();
+  });
+
+  // Cargar lista de empresas
+  await loadEmpresas();
+}
+
 async function initAdmin(user) {
   currentUser = user;
 
@@ -1552,17 +1741,35 @@ async function initAdmin(user) {
   const un = $('#userName'); if (un) un.textContent = user.full_name || user.username;
   const ur = $('#userRole'); if (ur) ur.textContent = user.role || '';
 
+  // Superadmin features
+  await initSuperadminFeatures(user);
+
   // Actualizar branding de empresa
+  const empresaIdOverride = localStorage.getItem('active_empresa_id');
   const empresaData = localStorage.getItem('current_empresa');
+  
   if (empresaData) {
     try {
-      const empresa = JSON.parse(empresaData);
-      if (empresa.nombre) {
-        document.title = `Panel Administrativo | ${empresa.nombre}`;
-        const compEl = $('#sidebarCompanyName');
-        if (compEl) compEl.textContent = empresa.nombre;
+      let empresa = JSON.parse(empresaData);
+      
+      // Si soy superadmin y estoy "viendo" otra empresa, cargamos sus datos reales
+      if (user.role === 'superadmin' && empresaIdOverride && empresaIdOverride != empresa.id) {
+        const targetEmpresa = allEmpresas.find(e => e.id == empresaIdOverride);
+        if (targetEmpresa) empresa = targetEmpresa;
       }
-    } catch(e) {}
+
+      if (empresa.nombre) {
+        document.title = `Panel | ${empresa.nombre}`;
+        const compBadge = $('#topbarCompanyBadge');
+        if (compBadge) {
+          if (empresa.logo_url) {
+            compBadge.innerHTML = `<img src="${empresa.logo_url}" style="height:20px;max-width:120px;object-fit:contain;margin-right:8px;vertical-align:middle;filter:brightness(1.2)"> ${empresa.nombre}`;
+          } else {
+            compBadge.textContent = empresa.nombre;
+          }
+        }
+      }
+    } catch(e) { console.error('Error branding:', e); }
   }
 
   // Sidebar navigation

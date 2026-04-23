@@ -9,24 +9,7 @@ const app = express();
 const port = process.env.PORT || 3005;
 const JWT_SECRET = process.env.JWT_SECRET || 'bbruno_secret_key_2024_safe';
 
-// ─── CONFIGURACIÓN ───
-const ALLOWED_ORIGINS = [
-  'http://localhost:8080',
-  'http://localhost:3005',
-  'http://127.0.0.1:8080',
-  'https://bbrunoautomotores.netlify.app',
-  'https://bbruno-automotores.com',
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
-    return callback(new Error('CORS: Origen no permitido'), false);
-  },
-  credentials: true,
-}));
-
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '5mb' }));
 
 // Supabase
@@ -50,259 +33,195 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// ─── AUDITORÍA ───
+// Auditoría simplificada
 async function logAction(user, action, table, targetId, details = {}, targetName = null) {
   try {
-    // Si no tenemos nombre, intentamos sacarlo de details si es un vehículo
-    if (!targetName && table === 'vehicles' && details) {
-      targetName = details.patent || (details.brand ? `${details.brand} ${details.model}` : null);
-    }
-
     await supabase.from('audit_logs').insert([{
-      user_id: user.id,
-      username: user.username,
-      action: action, // CREATE, UPDATE, DELETE
-      target_table: table,
-      target_id: String(targetId),
-      target_name: targetName,
-      details: details,
-      created_at: new Date().toISOString()
+      user_id: user.id, username: user.username, empresa_id: user.empresa_id,
+      action, target_table: table, target_id: String(targetId),
+      target_name: targetName || (details?.patent || details?.nombre || null),
+      details, created_at: new Date().toISOString()
     }]);
-  } catch (err) {
-    console.error('[Audit] Error guardando log:', err.message);
-  }
+  } catch (err) { console.error('[Audit Error]:', err.message); }
 }
 
-// ─── AUTH ───
+// ─── AUTH: LOGIN ───
 app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, hostname } = req.body;
   try {
-    const { data: user, error } = await supabase
-      .from('admin_users')
-      .select('*')
-      .eq('username', username)
-      .eq('is_active', true)
-      .single();
-
-    if (error || !user) return res.status(401).json({ error: 'El usuario o la contraseña ingresados no son correctos' });
-
-    let valid = false;
-    if (user.password_hash.startsWith('$2')) {
-      valid = await bcrypt.compare(password, user.password_hash);
-    } else {
-      valid = (password === user.password_hash);
-      if (valid) {
-        const hashed = await bcrypt.hash(password, 12);
-        await supabase.from('admin_users').update({ password_hash: hashed }).eq('id', user.id);
-      }
+    let empresaId = 1;
+    const host = hostname || req.headers.host || '';
+    if (!host.includes('localhost') && !host.includes('127.0.0.1')) {
+      const { data: emp } = await supabase.from('empresas').select('id').eq('dominio', host).maybeSingle();
+      if (emp) empresaId = emp.id;
     }
 
-    if (!valid) return res.status(401).json({ error: 'El usuario o la contraseña ingresados no son correctos' });
+    const { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
+    if (!empresa) return res.status(404).json({ error: 'Empresa no encontrada' });
 
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role, full_name: user.full_name } });
+    const { data: user } = await supabase.from('admin_users').select('*').eq('username', username).eq('empresa_id', empresa.id).eq('is_active', true).single();
+    if (!user) return res.status(401).json({ error: 'Usuario no encontrado' });
+
+    const valid = user.password_hash.startsWith('$2') ? await bcrypt.compare(password, user.password_hash) : (password === user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' });
+
+    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, empresa_id: empresa.id }, JWT_SECRET, { expiresIn: '8h' });
+    res.json({ token, user: { id: user.id, username: user.username, role: user.role, full_name: user.full_name }, empresa: { id: empresa.id, nombre: empresa.nombre } });
   } catch (err) {
-    res.status(500).json({ error: 'Error en el servidor' });
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 
-// Verificación de token
-app.get('/api/auth/verify', authenticateToken, (req, res) => {
-  res.json(req.user);
-});
-
-// ─── ENDPOINTS TABLAS ───
-
-// Listar (Público/Privado)
-// Gestión de Usuarios (Admin only)
-app.get('/api/admin/users', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'administrador') return res.status(403).json({ error: 'No tenés permisos' });
-  try {
-    const { data, error } = await supabase.from('admin_users').select('id, username, full_name, role, is_active');
-    if (error) throw error;
-    res.json(data);
-  } catch (err) {
-    console.error('[API] Error listing users:', err.message);
-    res.status(500).json({ error: 'Error al obtener usuarios' });
-  }
-});
-
-
-
-app.post('/api/admin/users', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'administrador') return res.status(403).json({ error: 'No tenés permisos' });
-  const { username, password, full_name, role, is_active } = req.body;
-  try {
-    const password_hash = await bcrypt.hash(password, 12);
-    const { data, error } = await supabase.from('admin_users').insert([{
-      username, password_hash, full_name, role, is_active
-    }]).select();
-    if (error) throw error;
-    res.status(201).json(data[0]);
-  } catch (err) {
-    console.error('[API] Error creating user:', err.message);
-    res.status(500).json({ error: 'Error al crear usuario' });
-  }
-});
-
-app.patch('/api/admin/users/:id', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'administrador') return res.status(403).json({ error: 'No tenés permisos' });
-  const { password, ...updateData } = req.body;
-  try {
-    if (password) {
-      updateData.password_hash = await bcrypt.hash(password, 12);
-    }
-    const { data, error } = await supabase.from('admin_users').update(updateData).eq('id', req.params.id).select();
-    if (error) throw error;
-    res.json(data[0]);
-  } catch (err) {
-    console.error('[API] Error updating user:', err.message);
-    res.status(500).json({ error: 'Error al actualizar usuario' });
-  }
-});
-
-app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'administrador') return res.status(403).json({ error: 'No tenés permisos' });
-  if (req.params.id === req.user.id) return res.status(400).json({ error: 'No podés eliminarte a vos mismo' });
-  try {
-    const { error } = await supabase.from('admin_users').delete().eq('id', req.params.id);
-    if (error) throw error;
-    res.json({ success: true });
-  } catch (err) {
-    console.error('[API] Error deleting user:', err.message);
-    res.status(500).json({ error: 'Error al eliminar usuario' });
-  }
-});
-
+// ─── ENDPOINTS ───
 app.get('/api/tables/:table', async (req, res) => {
   const { table } = req.params;
-  
-  // Auditoría es solo para administradores
-  if (table === 'audit_logs') {
-    return authenticateToken(req, res, async () => {
-      if (req.user.role !== 'administrador') return res.status(403).json({ error: 'No tenés permisos para ver logs' });
-      try {
-        const { data, error } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(200);
+  try {
+    let empresaId = 1;
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const decoded = jwt.decode(authHeader.split(' ')[1]);
+      if (decoded?.empresa_id) empresaId = decoded.empresa_id;
+      if (decoded?.role === 'superadmin' && req.headers['x-empresa-id']) empresaId = Number(req.headers['x-empresa-id']);
+    }
+
+    if (table === 'audit_logs') {
+      return authenticateToken(req, res, async () => {
+        const { data, error } = await supabase.from('audit_logs').select('*').eq('empresa_id', empresaId).order('created_at', { ascending: false }).limit(100);
         if (error) throw error;
         res.json(data);
-      } catch (err) {
-        console.error('[API] Error fetching audit_logs:', err.message || err);
-        res.status(500).json({ error: 'Error al obtener logs' });
-      }
-    });
-  }
+      });
+    }
 
-  if (!PUBLIC_TABLES.includes(table)) return res.status(403).json({ error: 'Tabla no permitida' });
+    if (!PUBLIC_TABLES.includes(table)) return res.status(403).json({ error: 'No permitido' });
 
-  try {
-    let query = supabase.from(table).select('*');
-    
-    // Sort only for tables that are known to have created_at
-    if (['vehicles', 'leads', 'maintenance'].includes(table)) {
+    // Corrección de ordenamiento: branches no tiene created_at
+    let query = supabase.from(table).select('*').eq('empresa_id', empresaId);
+    if (table !== 'branches') {
       query = query.order('created_at', { ascending: false });
     }
 
     const { data, error } = await query;
     if (error) throw error;
-
-    // Ocultar notas si no hay token por seguridad
-    const authHeader = req.headers.authorization;
-    if (!authHeader && table === 'vehicles') {
-      data.forEach(v => delete v.internal_notes);
-    }
-
+    if (!authHeader && table === 'vehicles') data.forEach(v => delete v.internal_notes);
     res.json(data);
-  } catch (err) {
-    console.error(`[API] Error GET /api/tables/${table}:`, err.message || err);
-    res.status(500).json({ error: 'Error al obtener datos' });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Crear
 app.post('/api/tables/:table', authenticateToken, async (req, res) => {
-  const { table } = req.params;
-  if (req.user.role === 'vendedor' || req.user.role === 'visualizador') {
-    return res.status(403).json({ error: 'No tenés permisos para realizar esta acción' });
-  }
-
   try {
-    const { data, error } = await supabase.from(table).insert([req.body]).select();
+    const { table } = req.params;
+    let empresaId = req.user.empresa_id;
+    if (req.user.role === 'superadmin' && req.headers['x-empresa-id']) empresaId = Number(req.headers['x-empresa-id']);
+    const payload = { ...req.body, empresa_id: empresaId };
+    const { data, error } = await supabase.from(table).insert([payload]).select();
     if (error) throw error;
-    
-    // Log the creation
-    await logAction(req.user, 'CREATE', table, data[0].id, req.body);
-    
+    await logAction(req.user, 'CREATE', table, data[0].id, payload);
     res.status(201).json(data[0]);
-  } catch (err) {
-    res.status(500).json({ error: 'Error al crear' });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Editar
 app.patch('/api/tables/:table/:id', authenticateToken, async (req, res) => {
-  const { table, id } = req.params;
-
-  // El vendedor solo puede editar el estado del auto
-  let updateData = req.body;
-  if (req.user.role === 'vendedor') {
-    if (table === 'vehicles') {
-       // Solo permitimos ciertos campos
-       const { status, internal_notes } = req.body;
-       updateData = {};
-       if (status) updateData.status = status;
-       if (internal_notes) updateData.internal_notes = internal_notes;
-       
-       if (Object.keys(updateData).length === 0) {
-         return res.status(403).json({ error: 'Como vendedor solo podés editar el estado' });
-       }
-    } else {
-       return res.status(403).json({ error: 'No tenés permisos para editar esta tabla' });
-    }
-  }
-
   try {
-    const { data, error } = await supabase.from(table).update(updateData).eq('id', id).select();
+    const { table, id } = req.params;
+    let empresaId = req.user.empresa_id;
+    if (req.user.role === 'superadmin' && req.headers['x-empresa-id']) empresaId = Number(req.headers['x-empresa-id']);
+    const { data, error } = await supabase.from(table).update(req.body).eq('id', id).eq('empresa_id', empresaId).select();
     if (error) throw error;
-    
-    // Log the update
-    await logAction(req.user, 'UPDATE', table, id, updateData);
-    
+    await logAction(req.user, 'UPDATE', table, id, req.body);
     res.json(data[0]);
-  } catch (err) {
-    res.status(500).json({ error: 'Error al actualizar' });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Eliminar
 app.delete('/api/tables/:table/:id', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'administrador' && req.user.role !== 'editor') {
-    return res.status(403).json({ error: 'No tenés permisos para eliminar' });
-  }
-
   try {
-    const { error } = await supabase.from(req.params.table).delete().eq('id', req.params.id);
+    const { table, id } = req.params;
+    let empresaId = req.user.empresa_id;
+    if (req.user.role === 'superadmin' && req.headers['x-empresa-id']) empresaId = Number(req.headers['x-empresa-id']);
+    const { error } = await supabase.from(table).delete().eq('id', id).eq('empresa_id', empresaId);
     if (error) throw error;
-    
-    // Log the deletion
-    await logAction(req.user, 'DELETE', req.params.table, req.params.id);
-    
+    await logAction(req.user, 'DELETE', table, id);
     res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error al eliminar' });
-  }
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// Alarfin Proxy
+app.get('/api/admin/empresas', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') return res.status(403).json({ error: 'No permitido' });
+  const { data, error } = await supabase.from('empresas').select('*').order('nombre');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/admin/empresas', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') return res.status(403).json({ error: 'No permitido' });
+  try {
+    const { data, error } = await supabase.from('empresas').insert([req.body]).select();
+    if (error) throw error;
+    res.status(201).json(data[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/admin/empresas/:id', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') return res.status(403).json({ error: 'No permitido' });
+  try {
+    const { data, error } = await supabase.from('empresas').update(req.body).eq('id', req.params.id).select();
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Usuarios (Admin/Superadmin)
+app.get('/api/admin/users', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'superadmin' && req.user.role !== 'admin') return res.status(403).json({ error: 'No permitido' });
+  let empresaId = req.user.empresa_id;
+  if (req.user.role === 'superadmin' && req.headers['x-empresa-id']) empresaId = Number(req.headers['x-empresa-id']);
+  
+  const { data, error } = await supabase.from('admin_users').select('*').eq('empresa_id', empresaId).order('username');
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+});
+
+app.post('/api/admin/users', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'superadmin' && req.user.role !== 'admin') return res.status(403).json({ error: 'No permitido' });
+  try {
+    let empresaId = req.user.empresa_id;
+    if (req.user.role === 'superadmin' && req.headers['x-empresa-id']) empresaId = Number(req.headers['x-empresa-id']);
+    
+    const payload = { ...req.body, empresa_id: empresaId };
+    if (payload.password) {
+       payload.password_hash = await bcrypt.hash(payload.password, 10);
+       delete payload.password;
+    }
+    const { data, error } = await supabase.from('admin_users').insert([payload]).select();
+    if (error) throw error;
+    res.status(201).json(data[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.patch('/api/admin/users/:id', authenticateToken, async (req, res) => {
+  if (req.user.role !== 'superadmin' && req.user.role !== 'admin') return res.status(403).json({ error: 'No permitido' });
+  try {
+    let empresaId = req.user.empresa_id;
+    if (req.user.role === 'superadmin' && req.headers['x-empresa-id']) empresaId = Number(req.headers['x-empresa-id']);
+    
+    const payload = { ...req.body };
+    if (payload.password) {
+       payload.password_hash = await bcrypt.hash(payload.password, 10);
+       delete payload.password;
+    }
+    const { data, error } = await supabase.from('admin_users').update(payload).eq('id', req.params.id).eq('empresa_id', empresaId).select();
+    if (error) throw error;
+    res.json(data[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/alarfin-data', async (req, res) => {
   try {
-    const response = await fetch('https://simulador.alarfin.com.ar/datos');
+    const response = await fetch(`https://api.alarfin.com/v1/info?domain=${req.query.domain}`);
     const data = await response.json();
     res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: 'Error Alarfin' });
-  }
+  } catch (err) { res.status(500).json({ error: 'Error proxying alarfin' }); }
 });
 
 app.listen(port, '0.0.0.0', () => {
-  console.log(`API server running on http://localhost:${port}`);
+  console.log(`[SERVER] API lista en puerto ${port}`);
 });
