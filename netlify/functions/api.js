@@ -166,6 +166,20 @@ exports.handler = async (event) => {
       }
     }
 
+    // ── ALARFIN DATA PROXY ──
+    if (path === 'alarfin-data' && event.httpMethod === 'GET') {
+      try {
+        const domain = event.queryStringParameters?.domain || 'bbruno';
+        const response = await fetch(`https://api.alarfin.com/v1/info?domain=${domain}`);
+        if (!response.ok) throw new Error('Alarfin API Error');
+        const data = await response.json();
+        return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data) };
+      } catch (err) {
+        console.error('[Alarfin Proxy Error]:', err.message);
+        return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: 'Error proxying alarfin' }) };
+      }
+    }
+
     // ── TABLES (GENERAL) ──
     if (path.startsWith('tables/')) {
       const subPath = path.replace('tables/', '');
