@@ -7,6 +7,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
 );
 
+console.log('[API] Conectado a Supabase URL:', process.env.SUPABASE_URL ? process.env.SUPABASE_URL.substring(0, 15) + '...' : 'MISSING');
+
 const JWT_SECRET = process.env.JWT_SECRET || 'bbruno_secret_key_2024_safe';
 const PUBLIC_TABLES = ['vehicles', 'branches', 'leads', 'maintenance'];
 
@@ -58,6 +60,10 @@ exports.handler = async (event) => {
     if (path === 'auth/login' && event.httpMethod === 'POST') {
       const { username, password, hostname } = JSON.parse(event.body);
       console.log('[LOGIN] Intento:', { username, hostname });
+
+      // Verificamos salud de la tabla
+      const { count } = await supabase.from('empresas').select('*', { count: 'exact', head: true });
+      console.log('[LOGIN] Total empresas en DB:', count);
 
       let empresaId = 1; // Default
       
