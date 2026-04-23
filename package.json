@@ -19,6 +19,8 @@
   },
   "homepage": "https://github.com/NicOrtiz29/Consecionario#readme",
   "dependencies": {
-    "bcryptjs": "^3.0.3"
+    "@supabase/supabase-js": "^2.39.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2"
   }
 }
