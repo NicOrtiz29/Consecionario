@@ -7,9 +7,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
 );
 
-console.log('[API] Conectado a:', process.env.SUPABASE_URL?.substring(0, 15));
-console.log('[API] Usando Service Key:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-
 const JWT_SECRET = process.env.JWT_SECRET || 'bbruno_secret_key_2024_safe';
 const PUBLIC_TABLES = ['vehicles', 'branches', 'leads', 'maintenance'];
 
@@ -60,48 +57,28 @@ exports.handler = async (event) => {
     // ── AUTH: LOGIN ──
     if (path === 'auth/login' && event.httpMethod === 'POST') {
       const { username, password, hostname } = JSON.parse(event.body);
-      console.log('[LOGIN] Intento:', { username, hostname });
-
-      // Verificamos salud de la tabla
-      const { count } = await supabase.from('empresas').select('*', { count: 'exact', head: true });
-      console.log('[LOGIN] Total empresas en DB:', count);
-
       let empresaId = 1; // Default
       
       if (hostname && !hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
         const cleanHost = hostname.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
-        console.log('[LOGIN] Buscando dominio:', cleanHost);
         
-        // Búsqueda flexible
+        // Búsqueda flexible de empresa por dominio
         const { data: emps } = await supabase.from('empresas').select('id, dominio');
         const match = emps?.find(e => e.dominio?.toLowerCase().includes(cleanHost) || cleanHost.includes(e.dominio?.toLowerCase()));
-        
-        if (match) {
-          empresaId = match.id;
-          console.log('[LOGIN] Empresa encontrada:', match.id);
-        } else {
-          console.warn('[LOGIN] No se encontró empresa para el host. Usando Default (1)');
-          empresaId = 1;
-        }
+        if (match) empresaId = match.id;
       }
 
-      const { data: empresa, error: empErr } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
-      if (!empresa) {
-        console.error('[LOGIN] Error crítico: Empresa ID', empresaId, 'no existe en DB');
-        return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'Empresa no encontrada en el sistema' }) };
-      }
+      const { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
+      if (!empresa) return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'Empresa no encontrada' }) };
 
-      const { data: dbUser, error: userErr } = await supabase.from('admin_users')
+      const { data: dbUser } = await supabase.from('admin_users')
         .select('*')
         .eq('username', username)
         .eq('empresa_id', empresa.id)
         .eq('is_active', true)
         .maybeSingle();
 
-      if (!dbUser) {
-        console.warn('[LOGIN] Usuario no encontrado o inactivo para empresa', empresa.id);
-        return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Usuario no encontrado o sin acceso a esta empresa' }) };
-      }
+      if (!dbUser) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
 
       const valid = dbUser.password_hash.startsWith('$2') ? await bcrypt.compare(password, dbUser.password_hash) : (password === dbUser.password_hash);
       if (!valid) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
