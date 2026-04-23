@@ -247,7 +247,7 @@ app.patch('/api/admin/users/:id', authenticateToken, async (req, res) => {
 
 app.get('/api/alarfin-data', async (req, res) => {
   try {
-    const response = await fetch(`https://api.alarfin.com/v1/info?domain=${req.query.domain}`);
+    const response = await fetch('https://simulador.alarfin.com.ar/datos/');
     const data = await response.json();
     res.json(data);
   } catch (err) { res.status(500).json({ error: 'Error proxying alarfin' }); }

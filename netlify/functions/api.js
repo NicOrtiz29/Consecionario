@@ -170,7 +170,7 @@ exports.handler = async (event) => {
     if (path === 'alarfin-data' && event.httpMethod === 'GET') {
       try {
         const domain = event.queryStringParameters?.domain || 'bbruno';
-        const response = await fetch(`https://api.alarfin.com/v1/info?domain=${domain}`);
+        const response = await fetch('https://simulador.alarfin.com.ar/datos/');
         if (!response.ok) throw new Error('Alarfin API Error');
         const data = await response.json();
         return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data) };
