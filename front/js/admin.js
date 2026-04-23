@@ -1325,15 +1325,28 @@ async function loadBranches() {
   } catch (err) { console.error('[Admin] Error cargando sucursales:', err); }
 }
 
+// Helper for role checks
+function isAdminRole(role) {
+  const r = String(role || '').toLowerCase();
+  const roles = window.APP_CONFIG?.ROLES;
+  return r === 'superadmin' || r === 'superadministrador' || r === 'admin' || r === 'administrador' || r === roles?.SUPERADMIN || r === roles?.ADMIN;
+}
+
+function isSuperRole(role) {
+  const r = String(role || '').toLowerCase();
+  const roles = window.APP_CONFIG?.ROLES;
+  return r === 'superadmin' || r === 'superadministrador' || r === roles?.SUPERADMIN;
+}
+
 // ── Users Management ──
 function renderUsersTable(users) {
   const tbody = $('#usersTableBody');
   if (!tbody) return;
 
   // SECURITY HIERARCHY: Non-superadmins cannot see superadmins
-  const isSuper = String(currentUser.role).toLowerCase() === 'superadmin';
+  const isSuper = isSuperRole(currentUser.role);
   const filteredUsers = users.filter(u => {
-    if (!isSuper && String(u.role).toLowerCase() === 'superadmin') return false;
+    if (!isSuper && isSuperRole(u.role)) return false;
     return true;
   });
 
@@ -1702,7 +1715,8 @@ async function saveEmpresa() {
 }
 
 async function initSuperadminFeatures(user) {
-  if (user.role !== 'superadmin') return;
+  const isSuper = user.role === 'superadmin' || user.role === 'superadministrador' || user.role === window.APP_CONFIG.ROLES.SUPERADMIN;
+  if (!isSuper) return;
 
   // Mostrar elementos para superadmin
   $('#labelSystem').style.display = 'block';
@@ -1731,6 +1745,7 @@ async function initSuperadminFeatures(user) {
 
 async function initAdmin(user) {
   currentUser = user;
+  await initSuperadminFeatures(user);
 
   const login = $('#loginScreen');
   const app = $('#adminApp');
@@ -1879,12 +1894,29 @@ async function initAdmin(user) {
   renderDashboard();
 }
 
+function checkUserModalPermissions() {
+  const isSuper = isSuperRole(currentUser.role);
+  
+  // Restriction: Only superadmins can assign admin roles
+  const roleSelect = $('#ufRole');
+  if (roleSelect) {
+    const opts = roleSelect.querySelectorAll('option');
+    opts.forEach(opt => {
+      const val = opt.value.toLowerCase();
+      if (val === 'superadmin' || val === 'superadministrador') {
+        opt.style.display = isSuper ? 'block' : 'none';
+      }
+    });
+  }
+}
+
 function renderRoleBasedUI() {
   if (!currentUser) return;
   const role = currentUser.role;
   const roles = window.APP_CONFIG?.ROLES;
 
   const isAdmin = isAdminRole(role);
+  const isSuper = isSuperRole(role);
   // Staff is anyone with admin/superadmin OR editor role
   const isStaff = isAdmin || String(role).toLowerCase() === String(roles.EDITOR).toLowerCase() || String(role).toLowerCase() === String(roles.SELLER).toLowerCase();
 

@@ -123,7 +123,10 @@ exports.handler = async (event) => {
       }
       
       const subPath = path.replace('admin/', '');
-      const [table, id] = subPath.split('/');
+      let [table, id] = subPath.split('/');
+
+      // Mapeo de nombres de tabla
+      if (table === 'users') table = 'admin_users';
 
       // GET LIST
       if (event.httpMethod === 'GET') {
