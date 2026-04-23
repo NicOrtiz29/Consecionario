@@ -49,13 +49,20 @@ exports.handler = async (event) => {
     }
   }
 
+  // Role helpers
+  const isSuperAdmin = (u) => u && (u.role === 'superadmin' || u.role === 'superadministrador');
+  const isAdmin = (u) => u && (isSuperAdmin(u) || u.role === 'admin' || u.role === 'administrador');
+
   try {
     // ── AUTH: LOGIN ──
     if (path === 'auth/login' && event.httpMethod === 'POST') {
       const { username, password, hostname } = JSON.parse(event.body);
       let empresaId = 1;
+      
       if (hostname && !hostname.includes('localhost')) {
-        const { data: emp } = await supabase.from('empresas').select('id').eq('dominio', hostname).maybeSingle();
+        // Limpiamos el hostname por si viene con protocolo o barras
+        const cleanHost = hostname.replace(/^https?:\/\//, '').split('/')[0];
+        const { data: emp } = await supabase.from('empresas').select('id').ilike('dominio', `%${cleanHost}%`).maybeSingle();
         if (emp) empresaId = emp.id;
       }
       const { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
@@ -73,7 +80,7 @@ exports.handler = async (event) => {
 
     // ── EMPRESAS / USERS (ADMIN) ──
     if (path.startsWith('admin/')) {
-      if (!user || (user.role !== 'superadmin' && user.role !== 'admin')) {
+      if (!isSuperAdmin(user) && !isAdmin(user)) {
         return { statusCode: 403, headers: securityHeaders, body: JSON.stringify({ error: 'No permitido' }) };
       }
       
@@ -85,7 +92,7 @@ exports.handler = async (event) => {
         let q = supabase.from(table).select('*');
         if (table === 'admin_users') {
           let targetEmpresa = user.empresa_id;
-          if (user.role === 'superadmin' && event.headers['x-empresa-id']) targetEmpresa = Number(event.headers['x-empresa-id']);
+          if (isSuperAdmin(user) && event.headers['x-empresa-id']) targetEmpresa = Number(event.headers['x-empresa-id']);
           q = q.eq('empresa_id', targetEmpresa);
         }
         const { data, error } = await q.order(table === 'empresas' ? 'nombre' : 'username');
@@ -99,7 +106,7 @@ exports.handler = async (event) => {
         if (table === 'admin_users' && body.password) {
           body.password_hash = await bcrypt.hash(body.password, 10);
           delete body.password;
-          if (user.role === 'superadmin' && event.headers['x-empresa-id']) body.empresa_id = Number(event.headers['x-empresa-id']);
+          if (isSuperAdmin(user) && event.headers['x-empresa-id']) body.empresa_id = Number(event.headers['x-empresa-id']);
           else body.empresa_id = user.empresa_id;
         }
         const { data, error } = await supabase.from(table).insert([body]).select();
@@ -123,7 +130,7 @@ exports.handler = async (event) => {
       const subPath = path.replace('tables/', '');
       const [table, id] = subPath.split('/');
       let empresaId = user?.empresa_id || 1;
-      if (user?.role === 'superadmin' && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
+      if (isSuperAdmin(user) && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
 
       if (event.httpMethod === 'GET') {
         if (table === 'audit_logs') {
