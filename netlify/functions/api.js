@@ -7,7 +7,8 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
 );
 
-console.log('[API] Conectado a Supabase URL:', process.env.SUPABASE_URL ? process.env.SUPABASE_URL.substring(0, 15) + '...' : 'MISSING');
+console.log('[API] Conectado a:', process.env.SUPABASE_URL?.substring(0, 15));
+console.log('[API] Usando Service Key:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
 
 const JWT_SECRET = process.env.JWT_SECRET || 'bbruno_secret_key_2024_safe';
 const PUBLIC_TABLES = ['vehicles', 'branches', 'leads', 'maintenance'];
