@@ -71,20 +71,49 @@ exports.handler = async (event) => {
       const { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
       if (!empresa) return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'Empresa no encontrada' }) };
 
-      const { data: dbUser } = await supabase.from('admin_users')
+      // 1. Intentar buscar el usuario en la empresa actual
+      let { data: dbUser } = await supabase.from('admin_users')
         .select('*')
         .eq('username', username)
         .eq('empresa_id', empresa.id)
         .eq('is_active', true)
         .maybeSingle();
 
+      // 2. Si no existe en esta empresa, lo buscamos globalmente SOLO si es Superadmin
+      if (!dbUser) {
+        const { data: globalUser } = await supabase.from('admin_users')
+          .select('*')
+          .eq('username', username)
+          .eq('is_active', true)
+          .maybeSingle();
+        
+        if (globalUser && (globalUser.role === 'superadmin' || globalUser.role === 'superadministrador')) {
+          dbUser = globalUser;
+          console.log('[LOGIN] Superadmin universal detectado:', username);
+        }
+      }
+
       if (!dbUser) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
 
       const valid = dbUser.password_hash.startsWith('$2') ? await bcrypt.compare(password, dbUser.password_hash) : (password === dbUser.password_hash);
       if (!valid) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
 
-      const token = jwt.sign({ id: dbUser.id, username: dbUser.username, role: dbUser.role, empresa_id: empresa.id }, JWT_SECRET, { expiresIn: '8h' });
-      return { statusCode: 200, headers: securityHeaders, body: JSON.stringify({ token, user: { id: dbUser.id, username: dbUser.username, role: dbUser.role, full_name: dbUser.full_name }, empresa: { id: empresa.id, nombre: empresa.nombre } }) };
+      const token = jwt.sign({ 
+        id: dbUser.id, 
+        username: dbUser.username, 
+        role: dbUser.role, 
+        empresa_id: empresa.id // Usamos el ID de la empresa del DOMINIO, no el del usuario
+      }, JWT_SECRET, { expiresIn: '8h' });
+
+      return { 
+        statusCode: 200, 
+        headers: securityHeaders, 
+        body: JSON.stringify({ 
+          token, 
+          user: { id: dbUser.id, username: dbUser.username, role: dbUser.role, full_name: dbUser.full_name }, 
+          empresa: { id: empresa.id, nombre: empresa.nombre } 
+        }) 
+      };
     }
 
     // ── EMPRESAS / USERS (ADMIN) ──

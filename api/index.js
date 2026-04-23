@@ -59,14 +59,45 @@ app.post('/api/auth/login', async (req, res) => {
     const { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
     if (!empresa) return res.status(404).json({ error: 'Empresa no encontrada' });
 
-    const { data: user } = await supabase.from('admin_users').select('*').eq('username', username).eq('empresa_id', empresa.id).eq('is_active', true).single();
-    if (!user) return res.status(401).json({ error: 'Usuario no encontrado' });
+    // 1. Intentar buscar el usuario en la empresa detectada
+    let { data: user } = await supabase.from('admin_users')
+      .select('*')
+      .eq('username', username)
+      .eq('empresa_id', empresa.id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    // 2. Si no está en esa empresa, buscar globalmente SOLO si es Superadmin
+    if (!user) {
+      const { data: globalUser } = await supabase.from('admin_users')
+        .select('*')
+        .eq('username', username)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (globalUser && (globalUser.role === 'superadmin' || globalUser.role === 'superadministrador')) {
+        user = globalUser;
+      }
+    }
+
+    if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
 
     const valid = user.password_hash.startsWith('$2') ? await bcrypt.compare(password, user.password_hash) : (password === user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Credenciales inválidas' });
 
-    const token = jwt.sign({ id: user.id, username: user.username, role: user.role, empresa_id: empresa.id }, JWT_SECRET, { expiresIn: '8h' });
-    res.json({ token, user: { id: user.id, username: user.username, role: user.role, full_name: user.full_name }, empresa: { id: empresa.id, nombre: empresa.nombre } });
+    // IMPORTANTE: El token se genera con el ID de la empresa del DOMINIO
+    const token = jwt.sign({ 
+      id: user.id, 
+      username: user.username, 
+      role: user.role, 
+      empresa_id: empresa.id 
+    }, JWT_SECRET, { expiresIn: '8h' });
+
+    res.json({ 
+      token, 
+      user: { id: user.id, username: user.username, role: user.role, full_name: user.full_name }, 
+      empresa: { id: empresa.id, nombre: empresa.nombre } 
+    });
   } catch (err) {
     res.status(500).json({ error: 'Error interno' });
   }
