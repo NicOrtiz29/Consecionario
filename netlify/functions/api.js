@@ -57,19 +57,44 @@ exports.handler = async (event) => {
     // ── AUTH: LOGIN ──
     if (path === 'auth/login' && event.httpMethod === 'POST') {
       const { username, password, hostname } = JSON.parse(event.body);
-      let empresaId = 1;
-      
-      if (hostname && !hostname.includes('localhost')) {
-        // Limpiamos el hostname por si viene con protocolo o barras
-        const cleanHost = hostname.replace(/^https?:\/\//, '').split('/')[0];
-        const { data: emp } = await supabase.from('empresas').select('id').ilike('dominio', `%${cleanHost}%`).maybeSingle();
-        if (emp) empresaId = emp.id;
-      }
-      const { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
-      if (!empresa) return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'Empresa no encontrada' }) };
+      console.log('[LOGIN] Intento:', { username, hostname });
 
-      const { data: dbUser } = await supabase.from('admin_users').select('*').eq('username', username).eq('empresa_id', empresa.id).eq('is_active', true).single();
-      if (!dbUser) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
+      let empresaId = 1; // Default
+      
+      if (hostname && !hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
+        const cleanHost = hostname.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+        console.log('[LOGIN] Buscando dominio:', cleanHost);
+        
+        // Búsqueda flexible
+        const { data: emps } = await supabase.from('empresas').select('id, dominio');
+        const match = emps?.find(e => e.dominio?.toLowerCase().includes(cleanHost) || cleanHost.includes(e.dominio?.toLowerCase()));
+        
+        if (match) {
+          empresaId = match.id;
+          console.log('[LOGIN] Empresa encontrada:', match.id);
+        } else {
+          console.warn('[LOGIN] No se encontró empresa para el host. Usando Default (1)');
+          empresaId = 1;
+        }
+      }
+
+      const { data: empresa, error: empErr } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
+      if (!empresa) {
+        console.error('[LOGIN] Error crítico: Empresa ID', empresaId, 'no existe en DB');
+        return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'Empresa no encontrada en el sistema' }) };
+      }
+
+      const { data: dbUser, error: userErr } = await supabase.from('admin_users')
+        .select('*')
+        .eq('username', username)
+        .eq('empresa_id', empresa.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!dbUser) {
+        console.warn('[LOGIN] Usuario no encontrado o inactivo para empresa', empresa.id);
+        return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Usuario no encontrado o sin acceso a esta empresa' }) };
+      }
 
       const valid = dbUser.password_hash.startsWith('$2') ? await bcrypt.compare(password, dbUser.password_hash) : (password === dbUser.password_hash);
       if (!valid) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
