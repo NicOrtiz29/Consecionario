@@ -1,0 +1,6 @@
+{
+  "skill_name": "Data-Integrity-Guard",
+  "target_patterns": ["XML", "JSON.parse", "unserialize", "pickle.load"],
+  "instruction": "Busca funciones de deserialización que no tengan validación de esquema previa.",
+  "ai_behavior": "Si detectas que el proyecto usa XML, inserta una configuración para desactivar 'libxml_disable_entity_loader' (PHP) o equivalentes para evitar ataques XXE."
+}

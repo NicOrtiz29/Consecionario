@@ -1,0 +1,11 @@
+{
+  "skill_name": "Logic-Shield-Pro",
+  "priority": "High",
+  "check_list": [
+    "XSS: Verificar sanitización de inputs en el Front-end",
+    "CSRF: Validar presencia de tokens en peticiones POST/PUT",
+    "CORS: Bloquear orígenes '*' en producción",
+    "RLS: Confirmar que las políticas de base de datos estén activas"
+  ],
+  "ai_behavior": "Actúa como un Auditor Senior. Si ves un endpoint que recibe un ID y no comprueba la propiedad del objeto, marca una alerta de 'Insecure Direct Object Reference (IDOR)'."
+}

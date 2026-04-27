@@ -46,6 +46,12 @@ function slugify(str) {
     .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-');
 }
 
+function escapeHtml(str) {
+  if (typeof str !== 'string') return str;
+  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+  return str.replace(/[&<>"']/g, m => map[m]);
+}
+
 // Animación para los números
 function animateValue(obj, end, duration = 400) {
   if (!obj) return;
@@ -153,7 +159,17 @@ async function fetchBranches() {
 }
 
 async function submitLead(data) {
-  return db.insert('leads', data);
+  // LOGIC SHIELD: Ahora usamos nuestra propia API con Rate Limit y validación en lugar de Supabase directo
+  const res = await fetch(`${window.APP_CONFIG.API_URL}/public/leads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...data, hostname: window.location.hostname })
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Error al enviar consulta' }));
+    throw new Error(err.error || 'Error al enviar consulta');
+  }
+  return res.json();
 }
 
 // ============================================================
@@ -219,12 +235,12 @@ function renderVehicleCard(v) {
       role="listitem"
       tabindex="0"
       onkeydown="if(event.key==='Enter')goToDetail('${v.id}')"
-      aria-label="${v.year} ${v.brand} ${v.model} - ${formatCurrency(v.price)}">
+      aria-label="${escapeHtml(v.year)} ${escapeHtml(v.brand)} ${escapeHtml(v.model)} - ${formatCurrency(v.price)}">
       <div class="vehicle-card-img-wrapper">
         <img 
           class="vehicle-card-img" 
           src="${photos[0]}" 
-          alt="${v.year} ${v.brand} ${v.model}"
+          alt="${escapeHtml(v.year)} ${escapeHtml(v.brand)} ${escapeHtml(v.model)}"
           loading="lazy"
           onerror="this.src='https://images.unsplash.com/photo-1494976388531-d1058494cdd8?w=600&q=80'">
         
@@ -233,16 +249,17 @@ function renderVehicleCard(v) {
         </div>
         
         ${indicators}
-
+ 
         <div class="vehicle-card-badge">
           <span class="badge ${status.cls}">${status.label}</span>
         </div>
         ${v.is_featured ? `<div class="vehicle-card-featured">⭐ Destacado</div>` : ''}
       </div>
       <div class="vehicle-card-body">
-        <div class="vehicle-card-brand">${v.brand || ''}</div>
-        <h3 class="vehicle-card-title">${v.year || ''} ${v.model || ''}</h3>
-        <div class="vehicle-card-version">${v.version || ''}</div>
+        <div class="vehicle-card-brand">${escapeHtml(v.brand || '')}</div>
+        <h3 class="vehicle-card-title">${escapeHtml(v.year || '')} ${escapeHtml(v.model || '')}</h3>
+        <div class="vehicle-card-version">${escapeHtml(v.version || '')}</div>
+vehicle-card-version">${v.version || ''}</div>
         <div class="vehicle-card-specs">
           <div class="spec-item">
             <i class="fas fa-road" aria-hidden="true"></i>

@@ -1,0 +1,9 @@
+{
+  "skill_name": "Header-Fortress",
+  "check_list": [
+    "Content-Security-Policy (CSP)",
+    "X-Frame-Options (Anti-Clickjacking)",
+    "Strict-Transport-Security (HSTS)"
+  ],
+  "ai_behavior": "Escanea el archivo de configuración del servidor (Nginx, .htaccess o Express) y sugiere las cabeceras que impidan que tu web sea cargada dentro de un <iframe> de otra página."
+}
