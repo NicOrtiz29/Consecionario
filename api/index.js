@@ -228,6 +228,10 @@ app.get('/api/tables/:table', async (req, res) => {
       data.forEach(v => delete v.internal_notes);
     }
     
+    // Debug headers
+    res.set('X-Debug-Empresa-Id', String(empresaId));
+    res.set('X-Debug-Hostname', req.hostname || req.headers.host || '');
+
     // Retornar objeto único si se pidió por ID y hay resultado
     if ((qId || req.params.id) && data.length === 1) {
         return res.json(data[0]);

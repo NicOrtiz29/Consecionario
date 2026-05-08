@@ -339,12 +339,19 @@ exports.handler = async (event) => {
         const { data, error } = await query.limit(qLimit);
         if (error) throw error;
         
+        // Debug headers
+        const debugHeaders = { 
+            ...securityHeaders, 
+            'X-Debug-Empresa-Id': String(empresaId),
+            'X-Debug-Hostname': hostname
+        };
+
         // Retornar objeto único si se pidió por ID y hay resultado
         if ((qId || id) && data.length === 1) {
-            return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data[0]) };
+            return { statusCode: 200, headers: debugHeaders, body: JSON.stringify(data[0]) };
         }
 
-        return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data) };
+        return { statusCode: 200, headers: debugHeaders, body: JSON.stringify(data) };
       }
 
       if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
