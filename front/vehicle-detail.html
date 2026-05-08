@@ -401,6 +401,12 @@
   function getFuelLabel(f) { return {nafta:'Nafta',diesel:'Diésel',gnc:'GNC',nafta_gnc:'Nafta + GNC',hibrido:'Híbrido',electrico:'Eléctrico'}[f]||f; }
   function getTransLabel(t) { return {manual:'Manual',automatica:'Automática',cvt:'CVT'}[t]||t; }
 
+  function escapeHtml(str) {
+    if (typeof str !== 'string') return str;
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return str.replace(/[&<>"']/g, m => map[m]);
+  }
+
   function showToast(title, msg, type='default') {
     const c = $('#toastContainer'); if(!c) return;
     const icons = {success:'✅',error:'❌',warning:'⚠️',default:'ℹ️'};
@@ -491,13 +497,24 @@
     const btn = e.target.querySelector('button[type=submit]');
     if (btn) { btn.disabled = true; btn.textContent = 'Enviando...'; }
     try {
-      await db.insert('leads', {
-        vehicle_patent: vehicle?.patent,
-        name: name,
-        phone: phone,
-        message: message || `Me interesa el ${vehicle?.year} ${vehicle?.brand} ${vehicle?.model}`,
-        status: 'nuevo'
+      // LOGIC SHIELD: Usamos el nuevo endpoint seguro
+      const res = await fetch(`${window.APP_CONFIG.API_URL}/public/leads`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vehicle_patent: vehicle?.patent,
+          name: name,
+          phone: phone,
+          message: message || `Me interesa el ${vehicle?.year} ${vehicle?.brand} ${vehicle?.model}`,
+          hostname: window.location.hostname
+        })
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'Error al enviar' }));
+        throw new Error(err.error || 'Error al enviar');
+      }
+
       showToast('¡Consulta enviada!', 'Te contactaremos a la brevedad. También podés escribirnos por WhatsApp.', 'success');
       e.target.reset();
 
@@ -594,12 +611,12 @@
     if (bc) bc.textContent = `${vehicle.year} ${vehicle.brand} ${vehicle.model}${canSeePatent && vehicle.patent ? ` [${vehicle.patent}]` : ''}`;
 
     // Info
-    const brand = $('#detailBrand'); if(brand) brand.textContent = vehicle.brand || '';
+    const brand = $('#detailBrand'); if(brand) brand.textContent = escapeHtml(vehicle.brand || '');
     const title = $('#detailTitle'); 
     if(title) {
-        title.innerHTML = `${vehicle.year || ''} ${vehicle.model || ''}${canSeePatent && vehicle.patent ? ` <small style="font-family:monospace; opacity:0.6; font-size:0.6em; vertical-align:middle; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">${vehicle.patent}</small>` : ''}`;
+        title.innerHTML = `${escapeHtml(vehicle.year || '')} ${escapeHtml(vehicle.model || '')}${canSeePatent && vehicle.patent ? ` <small style="font-family:monospace; opacity:0.6; font-size:0.6em; vertical-align:middle; background:rgba(255,255,255,0.1); padding:2px 6px; border-radius:4px;">${escapeHtml(vehicle.patent)}</small>` : ''}`;
     }
-    const version = $('#detailVersion'); if(version) version.textContent = vehicle.version || '';
+    const version = $('#detailVersion'); if(version) version.textContent = escapeHtml(vehicle.version || '');
     const price = $('#detailPrice'); if(price) price.textContent = formatCurrency(vehicle.price);
     
     // Anticipo
@@ -671,7 +688,7 @@
     const features = Array.isArray(vehicle.features) ? vehicle.features : [];
     if (features.length && featSection && featList) {
       featSection.style.display = 'block';
-      featList.innerHTML = features.map(f=>`<span class="feature-tag"><i class="fas fa-check" aria-hidden="true"></i>${f}</span>`).join('');
+      featList.innerHTML = features.map(f=>`<span class="feature-tag"><i class="fas fa-check" aria-hidden="true"></i>${escapeHtml(f)}</span>`).join('');
     }
 
     // Documents
@@ -682,7 +699,7 @@
       docsSection.style.display = 'block';
       docsList.innerHTML = docs.map(d=>`
         <span style="display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .75rem;background:rgba(46,204,113,0.1);border:1px solid rgba(46,204,113,0.25);border-radius:50px;font-size:.8rem;color:var(--color-success)">
-          <i class="fas fa-check-circle" aria-hidden="true"></i>${d}
+          <i class="fas fa-check-circle" aria-hidden="true"></i>${escapeHtml(d)}
         </span>`).join('');
     }
   }

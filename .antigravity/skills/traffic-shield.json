@@ -1,0 +1,9 @@
+{
+  "skill_name": "Traffic-Shield",
+  "priority": "Critical",
+  "actions": [
+    "Revisar implementación de 'express-rate-limit' (Node) o middlewares de aceleración (PHP/Python).",
+    "Verificar que los errores de login no digan 'Usuario incorrecto' o 'Password incorrecto' (debe ser genérico: 'Credenciales inválidas')."
+  ],
+  "ai_behavior": "Si el usuario está creando una ruta de Login o Registro, genera automáticamente un código de bloqueo para IPs que fallen más de 5 veces seguidas."
+}

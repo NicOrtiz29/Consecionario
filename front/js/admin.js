@@ -726,7 +726,7 @@ function renderDashboard() {
           <div style="display:flex;align-items:center;gap:.75rem;padding:.75rem 1.25rem;border-bottom:1px solid rgba(255,255,255,0.04)">
             <img src="${thumb}" alt="" style="width:56px;height:38px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.src='data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2256%22%20height%3D%2238%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%232B2B2B%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20font-family%3D%22Arial%22%20font-size%3D%2210%22%20fill%3D%22%23888%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3EBB%3C%2Ftext%3E%3C%2Fsvg%3E'">
             <div style="flex:1;min-width:0">
-              <div style="font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${v.year} ${v.brand} ${v.model}</div>
+              <div style="font-weight:700;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(v.year)} ${escapeHtml(v.brand)} ${escapeHtml(v.model)}</div>
               <div style="font-size:.75rem;color:var(--color-gray)">${formatCurrency(v.price)}</div>
             </div>
             <span class="badge ${st.c}" style="flex-shrink:0">${st.l}</span>
@@ -748,12 +748,12 @@ function renderDashboard() {
           <div class="lead-card" style="margin:.25rem .75rem">
             <div class="lead-card-header">
               <div>
-                <div class="lead-name">${l.name || '—'}</div>
-                <div class="lead-contact">${l.phone || ''}</div>
+                <div class="lead-name">${escapeHtml(l.name || '—')}</div>
+                <div class="lead-contact">${escapeHtml(l.phone || '')}</div>
               </div>
               <span class="badge ${st.c}">${st.l}</span>
             </div>
-            ${veh ? `<div style="font-size:.78rem;color:var(--color-yellow);margin-top:.3rem"><i class="fas fa-car" aria-hidden="true"></i> ${veh.year} ${veh.brand} ${veh.model} [${veh.patent}]</div>` : ''}
+            ${veh ? `<div style="font-size:.78rem;color:var(--color-yellow);margin-top:.3rem"><i class="fas fa-car" aria-hidden="true"></i> ${escapeHtml(veh.year)} ${escapeHtml(veh.brand)} ${escapeHtml(veh.model)} [${escapeHtml(veh.patent)}]</div>` : ''}
           </div>`;
       }).join('');
     }
@@ -781,20 +781,20 @@ function renderVehiclesTable(vehicles) {
         </td>
         <td>
           <div class="table-vehicle-name">
-            ${v.brand || ''} ${v.model || ''}
+            ${escapeHtml(v.brand || '')} ${escapeHtml(v.model || '')}
             ${v.internal_notes ? `<i class="fas fa-sticky-note" style="color:var(--color-yellow);margin-left:.5rem;font-size:0.8rem" title="Contiene notas internas"></i>` : ''}
           </div>
-          <div class="table-vehicle-sub">${v.version || '—'}</div>
+          <div class="table-vehicle-sub">${escapeHtml(v.version || '—')}</div>
         </td>
-        <td style="font-family:monospace;font-weight:700;letter-spacing:1px">${v.patent || '—'}</td>
-        <td>${v.year || '—'}</td>
+        <td style="font-family:monospace;font-weight:700;letter-spacing:1px">${escapeHtml(v.patent || '—')}</td>
+        <td>${escapeHtml(v.year || '—')}</td>
         <td>${v.mileage ? formatNumber(v.mileage) + ' km' : '—'}</td>
         <td style="font-weight:700;color:var(--color-yellow)">
           ${formatCurrency(v.price)}
           ${v.down_payment ? `<div style="font-size:0.75rem;color:var(--color-gray-light);font-weight:400;margin-top:2px">Anticipo: ${formatCurrency(v.down_payment)}</div>` : ''}
         </td>
         <td><span class="badge ${st.c}">${st.l}</span></td>
-        <td>${fuel}</td>
+        <td>${escapeHtml(fuel)}</td>
         <td>
           <div class="table-actions">
             <button class="btn btn-ghost btn-sm btn-icon" title="Ver en sitio" onclick="window.open('vehicle-detail.html?id=${v.id}','_blank')" aria-label="Ver vehículo">
@@ -1229,15 +1229,20 @@ function renderLeadsList(leads) {
     const st = getLeadStatusLabel(l.status || 'nuevo');
     const veh = allVehicles.find(v => v.patent === l.vehicle_patent);
     const vText = veh ? `${veh.year} ${veh.brand} ${veh.model} [${veh.patent}]` : '';
-    const waMsg = `Hola ${l.name || 'cliente'}, te contactamos de BBruno Automotores. ${veh ? `Te escribimos por el ${vText}.` : ''} ¿Seguís interesado?`;
+    const safeName = escapeHtml(l.name || '—');
+    const safePhone = escapeHtml(l.phone || '');
+    const safeEmail = escapeHtml(l.email || '');
+    const safeMsg = escapeHtml(l.message || '');
+    const waMsg = `Hola ${safeName}, te contactamos de BBruno Automotores. ${veh ? `Te escribimos por el ${vText}.` : ''} ¿Seguís interesado?`;
+    
     return `
       <div class="lead-card">
         <div class="lead-card-header">
           <div style="flex:1;min-width:0">
-            <div class="lead-name">${l.name || '—'}</div>
+            <div class="lead-name">${safeName}</div>
             <div class="lead-contact">
-              ${l.phone ? `<i class="fas fa-phone" style="font-size:.75rem" aria-hidden="true"></i> ${l.phone}` : ''}
-              ${l.email ? ` · ${l.email}` : ''}
+              ${safePhone ? `<i class="fas fa-phone" style="font-size:.75rem" aria-hidden="true"></i> ${safePhone}` : ''}
+              ${safeEmail ? ` · ${safeEmail}` : ''}
             </div>
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.4rem;flex-shrink:0">
@@ -1249,14 +1254,14 @@ function renderLeadsList(leads) {
           </div>
         </div>
         ${veh ? `<div style="font-size:.8rem;color:var(--color-yellow);margin-top:.4rem"><i class="fas fa-car" aria-hidden="true"></i> <a href="vehicle-detail.html?id=${veh.id}" target="_blank" style="color:var(--color-yellow)">${vText}</a></div>` : ''}
-        ${l.message ? `<div class="lead-msg">"${l.message}"</div>` : ''}
+        ${safeMsg ? `<div class="lead-msg">"${safeMsg}"</div>` : ''}
         <div style="display:flex;gap:.5rem;margin-top:.75rem;flex-wrap:wrap">
-          ${l.phone ? `
-            <a href="https://wa.me/${l.phone.replace(/\D/g,'')}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366;font-size:.75rem">
+          ${safePhone ? `
+            <a href="https://wa.me/${safePhone.replace(/\D/g,'')}?text=${encodeURIComponent(waMsg)}" target="_blank" rel="noopener" class="btn btn-sm" style="background:#25D366;color:#fff;border-color:#25D366;font-size:.75rem">
               <i class="fab fa-whatsapp" aria-hidden="true"></i> WhatsApp
             </a>` : ''}
-          ${l.phone ? `<a href="tel:${l.phone}" class="btn btn-ghost btn-sm" style="font-size:.75rem"><i class="fas fa-phone" aria-hidden="true"></i> Llamar</a>` : ''}
-          <button class="btn btn-danger btn-sm" onclick="confirmDelete('leads','${l.id}','¿Eliminar esta consulta de ${l.name}?',loadLeads)" style="font-size:.75rem" aria-label="Eliminar consulta">
+          ${safePhone ? `<a href="tel:${safePhone}" class="btn btn-ghost btn-sm" style="font-size:.75rem"><i class="fas fa-phone" aria-hidden="true"></i> Llamar</a>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="confirmDelete('leads','${l.id}','¿Eliminar esta consulta de ${safeName}?',loadLeads)" style="font-size:.75rem" aria-label="Eliminar consulta">
             <i class="fas fa-trash" aria-hidden="true"></i>
           </button>
         </div>
