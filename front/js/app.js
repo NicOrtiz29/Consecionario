@@ -486,10 +486,205 @@ function initNavbar() {
 }
 
 // ============================================================
+// BRANDING & CONFIG
+// ============================================================
+let siteConfig = null;
+
+async function loadBrandingConfig() {
+  try {
+    const apiBase = window.APP_CONFIG?.API_URL || 'http://localhost:3005/api';
+    const resp = await fetch(`${apiBase}/config`);
+    if (!resp.ok) throw new Error('Config failed');
+    siteConfig = await resp.json();
+
+    // Helper: busca en config o en site_content
+    const get = (key) => siteConfig[key] || (siteConfig.site_content && siteConfig.site_content[key]) || '';
+
+    // ═══ 1. Títulos y Textos básicos ═══
+    if ($('#pageTitle')) $('#pageTitle').textContent = siteConfig.nombre + ' | Catálogo de Vehículos';
+    if ($('#navbarTitle')) $('#navbarTitle').textContent = siteConfig.nombre;
+    if ($('#footerCopyright')) $('#footerCopyright').textContent = `© ${new Date().getFullYear()} ${siteConfig.nombre}. Todos los derechos reservados.`;
+
+    // ═══ 2. Logo ═══
+    const logoImg = $('#navbarLogo');
+    if (logoImg && siteConfig.logo_url) {
+      logoImg.src = siteConfig.logo_url;
+      logoImg.alt = siteConfig.nombre;
+      logoImg.style.display = 'block';
+      if ($('#navbarTitle')) $('#navbarTitle').style.display = 'none';
+    }
+    const footerLogo = $('#footerLogo');
+    if (footerLogo && siteConfig.logo_url) {
+      footerLogo.src = siteConfig.logo_url;
+      footerLogo.alt = siteConfig.nombre;
+    }
+
+    // ═══ 3. Colores Dinámicos ═══
+    if (siteConfig.color_primario) {
+      document.documentElement.style.setProperty('--color-yellow', siteConfig.color_primario);
+    }
+
+    // ═══ 4. Hero Section ═══
+    const heroBgUrl = get('hero_bg_url');
+    if (heroBgUrl) {
+      const heroEl = document.querySelector('.hero');
+      if (heroEl) {
+        // Overlay a dark gradient so text remains readable
+        heroEl.style.background = `linear-gradient(135deg, rgba(5,5,5,0.9) 0%, rgba(17,17,17,0.7) 40%, rgba(26,20,0,0.85) 100%), url('${heroBgUrl}') center/cover no-repeat`;
+      }
+    }
+
+    const heroBadge = get('hero_badge');
+    if (heroBadge && $('#heroBadge')) {
+      $('#heroBadge').innerHTML = `<i class="fas fa-shield-halved" aria-hidden="true"></i> ${heroBadge}`;
+    }
+    const heroTitulo = get('hero_titulo');
+    if (heroTitulo && $('#heroTitle')) {
+      // Parsear: separar en líneas por punto o manualmente
+      const words = heroTitulo.split(' ');
+      const mid = Math.ceil(words.length / 2);
+      const line1 = words.slice(0, mid).join(' ');
+      const line2 = words.slice(mid).join(' ');
+      $('#heroTitle').innerHTML = `${line1}<br><span class="highlight">${line2}</span>`;
+    }
+    const heroDesc = get('hero_subtitulo');
+    if (heroDesc && $('#heroSubtitle')) {
+      $('#heroSubtitle').textContent = heroDesc;
+    }
+
+    // Stats
+    const statSeg = get('stat_seguidores');
+    if (statSeg && $('#statSeg')) $('#statSeg').textContent = statSeg;
+    const statSegLabel = get('stat_seguidores_label');
+    if (statSegLabel && $('#statSegLabel')) $('#statSegLabel').textContent = statSegLabel;
+    const statExp = get('stat_experiencia');
+    if (statExp && $('#statExp')) $('#statExp').textContent = statExp;
+    const statExpLabel = get('stat_experiencia_label');
+    if (statExpLabel && $('#statExpLabel')) $('#statExpLabel').textContent = statExpLabel;
+
+    // ═══ 5. WhatsApp Buttons ═══
+    const waNum = (siteConfig.whatsapp || '').replace(/\D/g, '');
+    if (waNum) {
+      const waUrl = `https://wa.me/${waNum}`;
+      if ($('#heroWhatsappBtn')) $('#heroWhatsappBtn').href = waUrl;
+      if ($('#contactWhatsappBtn')) $('#contactWhatsappBtn').href = waUrl;
+      if ($('#footerWhatsapp')) $('#footerWhatsapp').href = waUrl;
+    }
+    if (siteConfig.whatsapp && $('#contactWhatsapp')) {
+      $('#contactWhatsapp').textContent = siteConfig.whatsapp;
+    }
+
+    // ═══ 6. Announcement Bar ═══
+    const ubicacion = get('direccion');
+    if (ubicacion && siteConfig.whatsapp && $('#brandStrip')) {
+      $('#brandStrip').innerHTML = `📍 ${ubicacion} &nbsp;|&nbsp; <a href="https://wa.me/${waNum}" target="_blank">📱 WhatsApp: ${siteConfig.whatsapp}</a> &nbsp;|&nbsp; Compro · Vendo · Permuto · Financio`;
+    }
+
+    // ═══ 7. Nosotros / Por qué elegirnos ═══
+    const nosotrosTitulo = get('nosotros_titulo');
+    if (nosotrosTitulo && $('#nosotrosTitulo')) {
+      $('#nosotrosTitulo').innerHTML = nosotrosTitulo.replace(siteConfig.nombre, `<span class="text-yellow">${siteConfig.nombre}</span>`);
+    }
+    const nosotrosSubtitulo = get('nosotros_subtitulo');
+    if (nosotrosSubtitulo && $('#nosotrosSubtitulo')) {
+      $('#nosotrosSubtitulo').textContent = nosotrosSubtitulo;
+    }
+    // Cards
+    for (let i = 1; i <= 4; i++) {
+      const titulo = get(`card${i}_titulo`);
+      const texto = get(`card${i}_desc`);
+      if (titulo && $(`#card${i}Titulo`)) $(`#card${i}Titulo`).textContent = titulo;
+      if (texto && $(`#card${i}Desc`)) $(`#card${i}Desc`).textContent = texto;
+    }
+
+    // ═══ 8. Contacto Section ═══
+    if (ubicacion) {
+      if ($('#contactUbicacion')) $('#contactUbicacion').textContent = ubicacion.split(',')[0] || ubicacion;
+      if ($('#contactUbicacionSub')) $('#contactUbicacionSub').textContent = ubicacion;
+      if ($('#contactoSubtitulo')) $('#contactoSubtitulo').textContent = `Estamos en ${ubicacion}. ¡Te esperamos!`;
+    }
+
+    const mapsUrl = get('mapa_url');
+    if (mapsUrl && $('#contactMapsLink')) $('#contactMapsLink').href = mapsUrl;
+
+    // Vendedores en contacto
+    const e1Name = get('emp1_nombre'), e1Tel = get('emp1_tel');
+    const e2Name = get('emp2_nombre'), e2Tel = get('emp2_tel');
+    if (e1Name && e1Tel && e2Name && e2Tel) {
+      if ($('#contactWhatsappSub')) {
+        $('#contactWhatsappSub').textContent = `También: ${e1Name} ${e1Tel} | ${e2Name} ${e2Tel}`;
+      }
+    }
+
+    // Instagram
+    const igUrl = get('instagram');
+    if (igUrl) {
+      // Extraer handle del URL
+      const igHandle = '@' + igUrl.replace(/\/$/, '').split('/').pop();
+      if ($('#contactInstagram')) $('#contactInstagram').textContent = igHandle;
+      if ($('#contactInstagramBtn')) $('#contactInstagramBtn').href = igUrl;
+      if ($('#footerInstagram')) $('#footerInstagram').href = igUrl;
+    }
+
+    // Facebook
+    const fbUrl = get('facebook');
+    if (fbUrl && $('#footerFacebook')) $('#footerFacebook').href = fbUrl;
+
+    // ═══ 9. Footer ═══
+    const footerDesc = get('footer_descripcion');
+    if (footerDesc && $('#footerDesc')) $('#footerDesc').textContent = footerDesc;
+
+    // Footer Contacto
+    if (ubicacion && $('#footerUbicacion')) {
+      $('#footerUbicacion').querySelector('span').textContent = ubicacion;
+    }
+    const wa = get('whatsapp');
+    if (wa && $('#footerTel')) {
+      $('#footerTel').querySelector('span').textContent = wa;
+    }
+    if (e1Name && e1Tel && $('#footerEmp1')) {
+      $('#footerEmp1').querySelector('span').textContent = `${e1Name}: ${e1Tel}`;
+    }
+    if (e2Name && e2Tel && $('#footerEmp2')) {
+      $('#footerEmp2').querySelector('span').textContent = `${e2Name}: ${e2Tel}`;
+    }
+
+    // ═══ 10. Horarios en Footer y Hero ═══
+    const horarioSem = get('horario_semana');
+    const horarioSab = get('horario_sabado');
+    if (horarioSem && $('#horarioSemanaText')) $('#horarioSemanaText').textContent = horarioSem;
+    if (horarioSab && $('#horarioSabadoText')) $('#horarioSabadoText').textContent = horarioSab;
+
+    const footerContacts = $('#footerContacts');
+    if (footerContacts) {
+      let html = '';
+      if (wa) {
+        html += `<a href="https://wa.me/${wa.replace(/\D/g, '')}" target="_blank" rel="noopener"><i class="fab fa-whatsapp"></i> ${wa}</a>`;
+      }
+      if (horarioSem) {
+        html += `<span title="Lunes a Viernes"><i class="far fa-clock"></i> ${horarioSem}</span>`;
+      }
+      footerContacts.innerHTML = html;
+    }
+
+    // ═══ 11. Visibilidad de módulos ═══
+    const simSection = $('#generalSimulatorSection');
+    if (simSection) {
+      simSection.style.display = siteConfig.mostrar_financiacion ? 'block' : 'none';
+    }
+
+  } catch (err) {
+    console.error('[Branding] Error:', err);
+    if ($('#pageTitle')) $('#pageTitle').textContent = 'Catálogo de Vehículos';
+  }
+}
+
+// ============================================================
 // INIT
 // ============================================================
 async function init() {
   initNavbar();
+  await loadBrandingConfig(); // Cargar marca antes que el resto
 
   // Registrar SW
   if ('serviceWorker' in navigator) {
@@ -584,7 +779,8 @@ async function initGeneralSimulator() {
 
   try {
     const apiBase = window.APP_CONFIG?.API_URL || 'http://localhost:3005/api';
-    const apiUrl = `${apiBase}/alarfin-data`;
+    const domain = siteConfig?.alarfin_domain || 'bbruno';
+    const apiUrl = `${apiBase}/alarfin-data?domain=${domain}`;
 
     const resp = await fetch(apiUrl);
     if (!resp.ok) throw new Error('API Offline');

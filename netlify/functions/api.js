@@ -10,6 +10,18 @@ const supabase = createClient(
 const JWT_SECRET = process.env.JWT_SECRET || 'bbruno_secret_key_2024_safe';
 const PUBLIC_TABLES = ['vehicles', 'branches', 'leads', 'maintenance'];
 
+// Helper: detectar tenant por hostname
+async function detectTenantId(hostname) {
+  let empresaId = 1;
+  if (hostname && !hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
+    const cleanHost = hostname.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+    const { data: emps } = await supabase.from('empresas').select('id, dominio');
+    const match = emps?.find(e => e.dominio?.toLowerCase().includes(cleanHost) || cleanHost.includes(e.dominio?.toLowerCase()));
+    if (match) empresaId = match.id;
+  }
+  return empresaId;
+}
+
 const securityHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Empresa-Id',
@@ -71,38 +83,44 @@ exports.handler = async (event) => {
       const { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
       if (!empresa) return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'Empresa no encontrada' }) };
 
-      // 1. Intentar buscar el usuario en la empresa actual
-      let { data: dbUser } = await supabase.from('admin_users')
+      // 1. Buscar todos los usuarios con ese nombre que estén activos
+      const { data: users } = await supabase.from('admin_users')
         .select('*')
         .eq('username', username)
-        .eq('empresa_id', empresa.id)
-        .eq('is_active', true)
-        .maybeSingle();
+        .eq('is_active', true);
 
-      // 2. Si no existe en esta empresa, lo buscamos globalmente SOLO si es Superadmin
-      if (!dbUser) {
-        const { data: globalUser } = await supabase.from('admin_users')
-          .select('*')
-          .eq('username', username)
-          .eq('is_active', true)
-          .maybeSingle();
+      if (!users || users.length === 0) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
+
+      // 2. Buscar el usuario cuya contraseña coincida
+      let foundUser = null;
+      for (const u of users) {
+        const isValid = u.password_hash.startsWith('$2') 
+          ? await bcrypt.compare(password, u.password_hash) 
+          : (password === u.password_hash);
         
-        if (globalUser && (globalUser.role === 'superadmin' || globalUser.role === 'superadministrador')) {
-          dbUser = globalUser;
-          console.log('[LOGIN] Superadmin universal detectado:', username);
+        if (isValid) {
+          if (u.empresa_id === empresa.id) {
+            foundUser = u;
+            break; 
+          }
+          if (!foundUser) foundUser = u;
         }
       }
 
-      if (!dbUser) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
+      if (!foundUser) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
 
-      const valid = dbUser.password_hash.startsWith('$2') ? await bcrypt.compare(password, dbUser.password_hash) : (password === dbUser.password_hash);
-      if (!valid) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Credenciales inválidas' }) };
+      // 3. Si el usuario pertenece a otra empresa, cambiamos el contexto
+      let targetEmpresa = empresa;
+      if (foundUser.empresa_id !== empresa.id) {
+        const { data: otherEmp } = await supabase.from('empresas').select('*').eq('id', foundUser.empresa_id).single();
+        if (otherEmp) targetEmpresa = otherEmp;
+      }
 
       const token = jwt.sign({ 
-        id: dbUser.id, 
-        username: dbUser.username, 
-        role: dbUser.role, 
-        empresa_id: empresa.id // Usamos el ID de la empresa del DOMINIO, no el del usuario
+        id: foundUser.id, 
+        username: foundUser.username, 
+        role: foundUser.role, 
+        empresa_id: targetEmpresa.id 
       }, JWT_SECRET, { expiresIn: '8h' });
 
       return { 
@@ -110,8 +128,8 @@ exports.handler = async (event) => {
         headers: securityHeaders, 
         body: JSON.stringify({ 
           token, 
-          user: { id: dbUser.id, username: dbUser.username, role: dbUser.role, full_name: dbUser.full_name }, 
-          empresa: { id: empresa.id, nombre: empresa.nombre } 
+          user: { id: foundUser.id, username: foundUser.username, role: foundUser.role, full_name: foundUser.full_name }, 
+          empresa: { id: targetEmpresa.id, nombre: targetEmpresa.nombre } 
         }) 
       };
     }
@@ -166,6 +184,70 @@ exports.handler = async (event) => {
       }
     }
 
+    // ── CONFIG (Público - branding de empresa) ──
+    if (path === 'config' && event.httpMethod === 'GET') {
+      const hostname = event.headers.host || '';
+      let empresaId = 1;
+      
+      if (user) {
+        empresaId = user.empresa_id;
+        if (isSuperAdmin(user) && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
+      } else {
+        empresaId = await detectTenantId(hostname);
+      }
+      
+      const { data: empresa, error } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
+      if (error) throw error;
+      return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(empresa) };
+    }
+
+    // ── ADMIN CONFIG (Update branding) ──
+    if (path === 'admin/config' && event.httpMethod === 'POST') {
+      if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
+      let empresaId = user.empresa_id;
+      if (isSuperAdmin(user) && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
+      
+      const body = JSON.parse(event.body);
+      const { data, error } = await supabase.from('empresas').update(body).eq('id', empresaId).select();
+      if (error) throw error;
+      await logAction(user, 'UPDATE_CONFIG', 'empresas', empresaId, body);
+      return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data[0]) };
+    }
+
+    // ── UPLOAD (Subida de imágenes a Supabase Storage) ──
+    if (path === 'upload' && event.httpMethod === 'POST') {
+      if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
+      
+      const { base64, fileName, bucket = 'vehicles', contentType = 'image/jpeg' } = JSON.parse(event.body);
+      if (!base64) return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Falta base64' }) };
+      
+      const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+      const buffer = Buffer.from(base64Data, 'base64');
+      const safeName = `${Date.now()}-${(fileName || 'image.jpg').replace(/\s+/g, '_')}`;
+      
+      const uploadRes = await fetch(
+        `${process.env.SUPABASE_URL}/storage/v1/object/${bucket}/${safeName}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY}`,
+            'Content-Type': contentType,
+            'x-upsert': 'true'
+          },
+          body: buffer
+        }
+      );
+      
+      if (!uploadRes.ok) {
+        const errBody = await uploadRes.text();
+        console.error('[Upload] Storage error:', uploadRes.status, errBody);
+        return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: 'Error de storage: ' + uploadRes.status }) };
+      }
+      
+      const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${safeName}`;
+      return { statusCode: 200, headers: securityHeaders, body: JSON.stringify({ url: publicUrl }) };
+    }
+
     // ── ALARFIN DATA PROXY ──
     if (path === 'alarfin-data' && event.httpMethod === 'GET') {
       try {
@@ -184,8 +266,20 @@ exports.handler = async (event) => {
     if (path.startsWith('tables/')) {
       const subPath = path.replace('tables/', '');
       const [table, id] = subPath.split('/');
-      let empresaId = user?.empresa_id || 1;
-      if (isSuperAdmin(user) && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
+      
+      // Tenant detection logic (Unificada con login)
+      let empresaId = 1;
+      const hostname = event.headers.host || '';
+      
+      if (user) {
+        empresaId = user.empresa_id;
+        if (isSuperAdmin(user) && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
+      } else if (hostname && !hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
+        const cleanHost = hostname.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
+        const { data: emps } = await supabase.from('empresas').select('id, dominio');
+        const match = emps?.find(e => e.dominio?.toLowerCase().includes(cleanHost) || cleanHost.includes(e.dominio?.toLowerCase()));
+        if (match) empresaId = match.id;
+      }
 
       if (event.httpMethod === 'GET') {
         if (table === 'audit_logs') {
@@ -195,8 +289,30 @@ exports.handler = async (event) => {
           return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data) };
         }
         
-        const { data, error } = await supabase.from(table).select('*').eq('empresa_id', empresaId).order(table === 'branches' ? 'id' : 'created_at', { ascending: false });
+        const qSelect = event.queryStringParameters?.select || '*';
+        const qLimit = event.queryStringParameters?.limit ? Number(event.queryStringParameters.limit) : 1000;
+        const qId = event.queryStringParameters?.id;
+        
+        let query = supabase.from(table).select(qSelect).eq('empresa_id', empresaId);
+        
+        // Soporte básico para filtrado por ID (PostgREST style)
+        if (qId && qId.startsWith('eq.')) {
+            query = query.eq('id', qId.replace('eq.', ''));
+        } else if (id) {
+            query = query.eq('id', id);
+        }
+
+        if (table === 'branches') query = query.order('id', { ascending: true });
+        else query = query.order('created_at', { ascending: false });
+        
+        const { data, error } = await query.limit(qLimit);
         if (error) throw error;
+        
+        // Retornar objeto único si se pidió por ID y hay resultado
+        if ((qId || id) && data.length === 1) {
+            return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data[0]) };
+        }
+
         return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data) };
       }
 

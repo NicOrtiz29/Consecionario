@@ -11,11 +11,14 @@ const $ = sel => document.querySelector(sel);
 const $$ = (sel, cur = document) => [...cur.querySelectorAll(sel)];
 
 // SECURITY: XSS protection — escape HTML entities in dynamic content
-function escapeHtml(str) {
-  if (str == null) return '';
-  const div = document.createElement('div');
-  div.textContent = String(str);
-  return div.innerHTML;
+function escapeHtml(unsafe) {
+  if (unsafe == null) return '';
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 function formatCurrency(n) {
@@ -40,16 +43,26 @@ function getMaintTypeLabel(t) {
   const m = { service:'Service', reparacion:'Reparación', inspeccion:'Inspección', limpieza:'Limpieza', acondicionamiento:'Acondicionamiento', garantia:'Garantía', otro:'Otro' };
   return m[t] || t;
 }
+// (Removida redundancia de escapeHtml)
 
 function showToast(title, msg = '', type = 'default') {
-  const c = $('#toastContainer'); if (!c) return;
+  console.log(`[Toast] ${type.toUpperCase()}: ${title} - ${msg}`);
+  const c = $('#toastContainer'); 
+  if (!c) {
+    console.warn('[Toast] No se encontró #toastContainer en el DOM');
+    return;
+  }
   const icons = { success: '✅', error: '❌', warning: '⚠️', default: 'ℹ️', info: 'ℹ️', danger: '❌' };
   const t = document.createElement('div');
   t.className = `toast toast-${type}`;
-  // SECURITY: Escape all dynamic content to prevent XSS
   t.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><div class="toast-body"><div class="toast-title">${escapeHtml(title)}</div>${msg?`<div class="toast-message">${escapeHtml(msg)}</div>`:''}</div>`;
   c.appendChild(t);
-  setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(100%)'; t.style.transition='all .3s'; setTimeout(()=>t.remove(),300); }, 4500);
+  setTimeout(() => { 
+    t.style.opacity='0'; 
+    t.style.transform='translateX(100%)'; 
+    t.style.transition='all .3s'; 
+    setTimeout(()=>t.remove(),300); 
+  }, 4500);
 }
 
 // ── Auth ──
@@ -411,26 +424,31 @@ async function compressImage(base64, maxWidth = 1600, quality = 0.8) {
   });
 }
 
-async function uploadToSupabase(file) {
-  const fileName = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`;
-  const bucket = 'vehicles';
-  
-  const res = await fetch(`${window.APP_CONFIG.SUPABASE_URL}/storage/v1/object/${bucket}/${fileName}`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${window.APP_CONFIG.SUPABASE_ANON_KEY}`,
-      'Content-Type': file.type
-    },
-    body: file
+async function uploadToSupabase(file, bucket = 'vehicles') {
+  // Convertir archivo a base64 para enviar al backend
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
 
-  if (!res.ok) {
-     const errData = await res.json().catch(() => ({}));
-     throw new Error(errData.message || 'Error al subir imagen al servidor');
+  // Usar nuestro endpoint del backend que tiene la service_role_key
+  const data = await apiFetch('/upload', {
+    method: 'POST',
+    body: {
+      base64,
+      fileName: file.name,
+      bucket,
+      contentType: file.type || 'image/jpeg'
+    }
+  });
+
+  if (!data?.url) {
+    throw new Error('No se recibió URL de la imagen subida');
   }
 
-  // URL pública de Supabase Storage
-  return `${window.APP_CONFIG.SUPABASE_URL}/storage/v1/render/image/public/${bucket}/${fileName}`;
+  return data.url;
 }
 
 async function processImageFile(file) {
@@ -465,6 +483,43 @@ async function processImageFile(file) {
   } catch (err) {
     console.error('[Upload Error]', err);
     showToast('Error de subida', `No se pudo subir "${file.name}": ${err.message}`, 'error');
+  }
+}
+
+async function handleBrandingImageUpload(file, targetInputId) {
+  try {
+    showToast('Optimizando...', 'Procesando imagen de marca...', 'info');
+    
+    // Leer y comprimir
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+
+    const optimizedBase64 = await compressImage(base64, 1200, 0.7); // Un poco más de calidad para logos/fondos
+    
+    // Convertir a blob para subida
+    const resp = await fetch(optimizedBase64);
+    const blob = await resp.blob();
+    const optimizedFile = new File([blob], file.name, { type: 'image/jpeg' });
+
+    showToast('Subiendo...', 'Subiendo imagen a la nube...', 'info');
+    const publicUrl = await uploadToSupabase(optimizedFile, 'vehicles');
+    
+    const input = $(`#${targetInputId}`) || document.getElementsByName(targetInputId)[0];
+    if (input) {
+      input.value = publicUrl;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    showToast('¡Éxito!', 'Imagen cargada correctamente.', 'success');
+    return publicUrl;
+  } catch (err) {
+    console.error('[Branding Upload] Error:', err);
+    showToast('Error', 'No se pudo cargar la imagen: ' + err.message, 'error');
+    return null;
   }
 }
 
@@ -535,7 +590,8 @@ const panelTitles = {
   branches: ['Sucursales', 'Gestión de sucursales'],
   users: ['Usuarios', 'Control de acceso'],
   empresas: ['Empresas', 'Gestión multi-tenant'],
-  logs: ['Auditoría', 'Registro de actividades']
+  logs: ['Auditoría', 'Registro de actividades'],
+  branding: ['Marca', 'Personalización del sitio']
 };
 
 function isAdminRole(role) {
@@ -580,6 +636,37 @@ function switchPanel(name) {
   if (name === 'users') loadUsers();
   if (name === 'logs') loadLogs();
   if (name === 'empresas') loadEmpresas();
+  if (name === 'branding') loadBranding();
+}
+
+async function loadBranding() {
+    try {
+        const config = await apiFetch('/config');
+        const form = $('#brandingForm');
+        if (!config || !form) return;
+
+        // Poblar todos los campos del formulario desde config (genérico)
+        const allFields = form.elements;
+        for (let i = 0; i < allFields.length; i++) {
+            const el = allFields[i];
+            if (!el.name || el.type === 'submit') continue;
+            
+            // Buscar en config directo o en site_content
+            let val = config[el.name];
+            if (val === undefined && config.site_content) {
+                val = config.site_content[el.name];
+            }
+
+            if (el.type === 'checkbox') {
+                el.checked = !!val;
+            } else {
+                el.value = val || '';
+            }
+        }
+    } catch (err) {
+        console.error('[Branding] Error:', err);
+        showToast('Error', 'No se pudo cargar la configuración de marca', 'error');
+    }
 }
 
 // ── Dashboard ──
@@ -1719,10 +1806,10 @@ async function initSuperadminFeatures(user) {
   if (!isSuper) return;
 
   // Mostrar elementos para superadmin
-  $('#labelSystem').style.display = 'block';
-  $('#sidebarLinkEmpresas').style.display = 'flex';
-  $('#sidebarLinkUsers').style.display = 'flex';
-  $('#companySwitcherWrapper').style.display = 'flex';
+  if ($('#labelSystem')) $('#labelSystem').style.display = 'block';
+  if ($('#sidebarLinkEmpresas')) $('#sidebarLinkEmpresas').style.display = 'flex';
+  if ($('#sidebarLinkUsers')) $('#sidebarLinkUsers').style.display = 'flex';
+  if ($('#companySwitcherWrapper')) $('#companySwitcherWrapper').style.display = 'flex';
 
   // Eventos
   $('#btnNewEmpresa')?.addEventListener('click', () => openEmpresaModal());
@@ -1745,6 +1832,21 @@ async function initSuperadminFeatures(user) {
 
 async function initAdmin(user) {
   currentUser = user;
+
+  // Listeners para subida de imágenes de branding
+  $('#branding_logo_file')?.addEventListener('change', async (e) => {
+    if (e.target.files?.[0]) await handleBrandingImageUpload(e.target.files[0], 'branding_logo_url');
+  });
+  $('#branding_hero_bg_file')?.addEventListener('change', async (e) => {
+    if (e.target.files?.[0]) await handleBrandingImageUpload(e.target.files[0], 'branding_hero_bg_url');
+  });
+  $('#efLogoFile')?.addEventListener('change', async (e) => {
+    if (e.target.files?.[0]) {
+      const url = await handleBrandingImageUpload(e.target.files[0], 'efLogo');
+      if (url) updateLogoPreview(url);
+    }
+  });
+
   await initSuperadminFeatures(user);
 
   const login = $('#loginScreen');
@@ -1756,36 +1858,30 @@ async function initAdmin(user) {
   const un = $('#userName'); if (un) un.textContent = user.full_name || user.username;
   const ur = $('#userRole'); if (ur) ur.textContent = user.role || '';
 
-  // Superadmin features
-  await initSuperadminFeatures(user);
-
-  // Actualizar branding de empresa
-  const empresaIdOverride = localStorage.getItem('active_empresa_id');
-  const empresaData = localStorage.getItem('current_empresa');
-  
-  if (empresaData) {
-    try {
-      let empresa = JSON.parse(empresaData);
-      
-      // Si soy superadmin y estoy "viendo" otra empresa, cargamos sus datos reales
-      if (user.role === 'superadmin' && empresaIdOverride && empresaIdOverride != empresa.id) {
-        const targetEmpresa = allEmpresas.find(e => e.id == empresaIdOverride);
-        if (targetEmpresa) empresa = targetEmpresa;
+  // Cargar branding dinámico de la empresa (logo, nombre, etc.)
+  try {
+    const empresaConfig = await apiFetch('/config');
+    if (empresaConfig) {
+      if (empresaConfig.nombre) {
+        document.title = `Panel | ${empresaConfig.nombre}`;
       }
-
-      if (empresa.nombre) {
-        document.title = `Panel | ${empresa.nombre}`;
-        const compBadge = $('#topbarCompanyBadge');
-        if (compBadge) {
-          if (empresa.logo_url) {
-            compBadge.innerHTML = `<img src="${empresa.logo_url}" style="height:20px;max-width:120px;object-fit:contain;margin-right:8px;vertical-align:middle;filter:brightness(1.2)"> ${empresa.nombre}`;
-          } else {
-            compBadge.textContent = empresa.nombre;
-          }
+      // Logo sidebar
+      const sidebarLogo = $('#sidebarLogo');
+      if (sidebarLogo && empresaConfig.logo_url) {
+        sidebarLogo.src = empresaConfig.logo_url;
+        sidebarLogo.style.display = '';
+      }
+      // Badge topbar
+      const compBadge = $('#topbarCompanyBadge');
+      if (compBadge) {
+        if (empresaConfig.logo_url) {
+          compBadge.innerHTML = `<img src="${empresaConfig.logo_url}" style="height:20px;max-width:120px;object-fit:contain;margin-right:8px;vertical-align:middle;filter:brightness(1.2)" onerror="this.style.display='none'"> ${escapeHtml(empresaConfig.nombre)}`;
+        } else {
+          compBadge.textContent = empresaConfig.nombre || '';
         }
       }
-    } catch(e) { console.error('Error branding:', e); }
-  }
+    }
+  } catch(e) { console.error('[Branding] Error cargando config:', e); }
 
   // Sidebar navigation
   $$('.sidebar-link[data-panel]').forEach(btn => {
@@ -1809,6 +1905,51 @@ async function initAdmin(user) {
   sidebarOverlay?.addEventListener('click', () => {
     sidebar?.classList.remove('open');
     sidebarOverlay?.classList.remove('show');
+  });
+
+  // Branding Form
+  $('#brandingForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type=submit]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; }
+
+    try {
+        // Campos que existen como columnas en la tabla empresas
+        const dbColumns = ['nombre', 'logo_url', 'whatsapp', 'color_primario', 'color_secundario', 'hero_titulo', 'hero_subtitulo', 'instagram', 'facebook', 'direccion', 'mapa_url', 'mostrar_financiacion'];
+        
+        const payload = {};
+        const siteContent = {};
+
+        const allFields = e.target.elements;
+        for (let i = 0; i < allFields.length; i++) {
+            const el = allFields[i];
+            if (!el.name || el.type === 'submit') continue;
+
+            const val = el.type === 'checkbox' ? el.checked : el.value;
+
+            if (dbColumns.includes(el.name)) {
+                payload[el.name] = val;
+            } else {
+                siteContent[el.name] = val;
+            }
+        }
+
+        // Meter campos extendidos en site_content (JSONB)
+        if (Object.keys(siteContent).length > 0) {
+            payload.site_content = siteContent;
+        }
+
+        await apiFetch('/admin/config', {
+            method: 'POST',
+            body: payload
+        });
+
+        showToast('Éxito', 'Configuración de marca actualizada correctamente', 'success');
+    } catch (err) {
+        showToast('Error', 'No se pudo guardar: ' + err.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Guardar Configuración'; }
+    }
   });
 
   // Logout
@@ -1924,6 +2065,9 @@ function renderRoleBasedUI() {
   const usersLink = $('#sidebarLinkUsers');
   if (usersLink) usersLink.style.display = isAdmin ? 'flex' : 'none';
 
+  const brandingLink = $('#sidebarLinkBranding');
+  if (brandingLink) brandingLink.style.display = isAdmin ? 'flex' : 'none';
+
   $$('#btnNewVehicle, #btnNewMaintenance, #btnNewBranch, #btnExportExcel, #btnImportExcel').forEach(b => { 
     if (b) b.style.display = isStaff ? 'flex' : 'none'; 
   });
@@ -2006,9 +2150,27 @@ async function initLogin() {
   $('#loginUser')?.addEventListener('keydown', e => { if (e.key === 'Enter') $('#loginPass')?.focus(); });
 }
 
+// ── Cargar logo dinámico para la pantalla de login ──
+async function loadDynamicLogo() {
+  try {
+    const config = await fetch(`${window.APP_CONFIG.API_URL}/config`).then(r => r.ok ? r.json() : null);
+    if (config?.logo_url) {
+      const loginLogo = $('#loginLogo');
+      if (loginLogo) {
+        loginLogo.src = config.logo_url;
+        loginLogo.style.display = '';
+        loginLogo.onerror = () => { loginLogo.style.display = 'none'; };
+      }
+    }
+  } catch(e) { console.log('[Logo] No se pudo cargar logo dinámico'); }
+}
+
 // ── Bootstrap ──
 document.addEventListener('DOMContentLoaded', async () => {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+  // Cargar logo de la empresa para la pantalla de login
+  loadDynamicLogo();
 
   const session = getSession();
   if (session) {

@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=5">
   <style>
     /* ── Admin Layout ── */
     body { overflow-x: hidden; }
@@ -100,8 +100,7 @@
     .sidebar-link.active i { color: var(--color-black); }
     .sidebar-link i { width: 20px; text-align: center; font-size: 0.95rem; color: var(--color-gray); }
     .sidebar-link .badge-count {
-      margin-left: auto; background: var(--color-danger);
-      color: #fff; font-size: 0.7rem; font-weight: 700;
+      margin-left: auto; background: #fff; font-size: 0.7rem; font-weight: 700;
       padding: 0.1rem 0.45rem; border-radius: 50px;
     }
     .sidebar-footer {
@@ -349,7 +348,7 @@
   <div id="loginScreen" role="main">
     <div class="login-card">
       <div class="login-logo">
-        <img src="https://bbrunoautomotores.com/wp-content/uploads/2022/01/cropped-WhatsApp-Image-2022-01-26-at-14.12.08-1.jpeg" alt="BBruno Automotores" style="height: 60px; border-radius: 8px;">
+        <img src="" alt="Logo" id="loginLogo" style="height: 60px; border-radius: 8px; display:none;">
       </div>
       <div class="login-error" id="loginError" role="alert">
         <i class="fas fa-triangle-exclamation" aria-hidden="true"></i>
@@ -389,7 +388,7 @@
       <!-- SIDEBAR -->
       <aside class="admin-sidebar" id="adminSidebar" role="navigation" aria-label="Navegación administrativa">
         <div class="sidebar-header">
-          <img src="https://bbrunoautomotores.com/wp-content/uploads/2022/01/cropped-WhatsApp-Image-2022-01-26-at-14.12.08-1.jpeg" id="sidebarLogo" alt="Logo" style="height: 38px; border-radius: 4px;">
+          <img src="" id="sidebarLogo" alt="Logo" style="height: 38px; border-radius: 4px; display:none;">
           <button style="margin-left:auto;background:none;border:none;color:var(--color-gray);cursor:pointer;font-size:1.1rem" 
             id="sidebarClose" aria-label="Cerrar sidebar">
             <i class="fas fa-xmark" aria-hidden="true"></i>
@@ -414,6 +413,9 @@
           </button>
           <button class="sidebar-link" data-panel="branches" role="menuitem">
             <i class="fas fa-building" aria-hidden="true"></i> Sucursales
+          </button>
+          <button class="sidebar-link" data-panel="branding" id="sidebarLinkBranding" role="menuitem">
+            <i class="fas fa-palette" aria-hidden="true"></i> Personalización
           </button>
           <div class="sidebar-nav-label" id="labelSystem" style="display:none">Sistema</div>
           <button class="sidebar-link" data-panel="empresas" id="sidebarLinkEmpresas" role="menuitem" style="display:none">
@@ -714,6 +716,113 @@
                   </tbody>
                 </table>
               </div>
+            </div>
+          </div>
+
+          <!-- ========== BRANDING (Company Settings) ========== -->
+          <div class="admin-panel" id="panel-branding">
+            <div class="admin-card">
+              <div class="card-header">
+                <h3 class="card-title"><i class="fas fa-palette"></i> Personalización de Marca</h3>
+                <p style="color:var(--color-gray); font-size:0.85rem; margin-top:0.25rem">Configurá la identidad visual y los textos que ven tus clientes en el sitio público.</p>
+              </div>
+              <form id="brandingForm" style="padding:1.5rem; display:flex; flex-direction:column; gap:2rem">
+
+                <!-- IDENTIDAD -->
+                <fieldset style="border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:1.5rem">
+                  <legend style="font-weight:700; font-size:0.95rem; color:var(--color-yellow); padding:0 0.5rem"><i class="fas fa-id-card"></i> Identidad</legend>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem">
+                    <div class="form-group"><label class="form-label">Nombre de la Empresa</label><input type="text" name="nombre" class="form-control" placeholder="Mi Concesionaria"></div>
+                    <div class="form-group">
+                      <label class="form-label">Logo de la Empresa</label>
+                      <div style="display:flex;gap:.5rem">
+                        <input type="text" name="logo_url" id="branding_logo_url" class="form-control" placeholder="https://...">
+                        <input type="file" id="branding_logo_file" style="display:none" accept="image/*">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="$('#branding_logo_file').click()"><i class="fas fa-upload"></i></button>
+                      </div>
+                    </div>
+                    <div class="form-group"><label class="form-label">WhatsApp principal</label><input type="text" name="whatsapp" class="form-control" placeholder="+54 9 11 1234 5678"></div>
+                    <div class="form-group"><label class="form-label">Color Primario</label><input type="color" name="color_primario" class="form-control" value="#F5D80A" style="height:45px"></div>
+                    <div class="form-group"><label class="form-label">Instagram (URL)</label><input type="text" name="instagram" class="form-control" placeholder="https://instagram.com/..."></div>
+                    <div class="form-group"><label class="form-label">Facebook (URL)</label><input type="text" name="facebook" class="form-control" placeholder="https://facebook.com/..."></div>
+                  </div>
+                </fieldset>
+
+                <!-- HERO -->
+                <fieldset style="border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:1.5rem">
+                  <legend style="font-weight:700; font-size:0.95rem; color:var(--color-yellow); padding:0 0.5rem"><i class="fas fa-star"></i> Sección Principal (Hero)</legend>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem">
+                    <div class="form-group" style="grid-column:1/-1">
+                      <label class="form-label">Imagen de Fondo</label>
+                      <div style="display:flex;gap:.5rem">
+                        <input type="text" name="hero_bg_url" id="branding_hero_bg_url" class="form-control" placeholder="https://ejemplo.com/fondo.jpg (Opcional)">
+                        <input type="file" id="branding_hero_bg_file" style="display:none" accept="image/*">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="$('#branding_hero_bg_file').click()"><i class="fas fa-upload"></i></button>
+                      </div>
+                    </div>
+                    <div class="form-group" style="grid-column:1/-1"><label class="form-label">Etiqueta superior</label><input type="text" name="hero_badge" class="form-control" placeholder="Concesionaria de Confianza · Tristán Suárez"></div>
+                    <div class="form-group" style="grid-column:1/-1"><label class="form-label">Título principal</label><input type="text" name="hero_titulo" class="form-control" placeholder="Tu próximo auto ideal te espera."></div>
+                    <div class="form-group" style="grid-column:1/-1"><label class="form-label">Descripción</label><textarea name="hero_subtitulo" class="form-control" rows="2" placeholder="En nuestra concesionaria encontrás el vehículo que buscás..."></textarea></div>
+                    <div class="form-group"><label class="form-label">Stat 1 — Valor</label><input type="text" name="stat_seguidores" class="form-control" placeholder="310K"></div>
+                    <div class="form-group"><label class="form-label">Stat 1 — Etiqueta</label><input type="text" name="stat_seguidores_label" class="form-control" placeholder="Seguidores"></div>
+                    <div class="form-group"><label class="form-label">Stat 2 — Valor</label><input type="text" name="stat_experiencia" class="form-control" placeholder="+10"></div>
+                    <div class="form-group"><label class="form-label">Stat 2 — Etiqueta</label><input type="text" name="stat_experiencia_label" class="form-control" placeholder="Años de exp."></div>
+                  </div>
+                </fieldset>
+
+                <!-- POR QUÉ ELEGIRNOS -->
+                <fieldset style="border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:1.5rem">
+                  <legend style="font-weight:700; font-size:0.95rem; color:var(--color-yellow); padding:0 0.5rem"><i class="fas fa-trophy"></i> Sección "Por Qué Elegirnos"</legend>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem">
+                    <div class="form-group" style="grid-column:1/-1"><label class="form-label">Título</label><input type="text" name="nosotros_titulo" class="form-control" placeholder="La diferencia Mi Concesionaria"></div>
+                    <div class="form-group" style="grid-column:1/-1"><label class="form-label">Subtítulo</label><input type="text" name="nosotros_subtitulo" class="form-control" placeholder="Más de una década acompañando familias..."></div>
+                    <div class="form-group"><label class="form-label">Card 1 — Título</label><input type="text" name="card1_titulo" class="form-control" placeholder="Confianza probada"></div>
+                    <div class="form-group"><label class="form-label">Card 1 — Descripción</label><input type="text" name="card1_desc" class="form-control" placeholder="Descripción breve..."></div>
+                    <div class="form-group"><label class="form-label">Card 2 — Título</label><input type="text" name="card2_titulo" class="form-control" placeholder="Mejores precios"></div>
+                    <div class="form-group"><label class="form-label">Card 2 — Descripción</label><input type="text" name="card2_desc" class="form-control" placeholder="Descripción breve..."></div>
+                    <div class="form-group"><label class="form-label">Card 3 — Título</label><input type="text" name="card3_titulo" class="form-control" placeholder="Documentación al día"></div>
+                    <div class="form-group"><label class="form-label">Card 3 — Descripción</label><input type="text" name="card3_desc" class="form-control" placeholder="Descripción breve..."></div>
+                    <div class="form-group"><label class="form-label">Card 4 — Título</label><input type="text" name="card4_titulo" class="form-control" placeholder="Atención personalizada"></div>
+                    <div class="form-group"><label class="form-label">Card 4 — Descripción</label><input type="text" name="card4_desc" class="form-control" placeholder="Descripción breve..."></div>
+                  </div>
+                </fieldset>
+
+                <!-- FOOTER / CONTACTO -->
+                <fieldset style="border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:1.5rem">
+                  <legend style="font-weight:700; font-size:0.95rem; color:var(--color-yellow); padding:0 0.5rem"><i class="fas fa-map-marker-alt"></i> Contacto y Footer</legend>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem">
+                    <div class="form-group" style="grid-column:1/-1"><label class="form-label">Descripción del footer</label><textarea name="footer_descripcion" class="form-control" rows="2" placeholder="Concesionaria de vehículos usados y nuevos ubicada en..."></textarea></div>
+                    <div class="form-group"><label class="form-label">Ubicación</label><input type="text" name="direccion" class="form-control" placeholder="Tristán Suárez, Ezeiza, Bs.As."></div>
+                    <div class="form-group"><label class="form-label">Link Google Maps</label><input type="text" name="mapa_url" class="form-control" placeholder="https://maps.app.goo.gl/..."></div>
+                  </div>
+                </fieldset>
+
+                <!-- HORARIOS Y EQUIPO -->
+                <fieldset style="border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:1.5rem">
+                  <legend style="font-weight:700; font-size:0.95rem; color:var(--color-yellow); padding:0 0.5rem"><i class="fas fa-clock"></i> Horarios y Equipo</legend>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem">
+                    <div class="form-group"><label class="form-label">Horario Lun-Vie</label><input type="text" name="horario_semana" class="form-control" placeholder="Lunes a Viernes: 09:00 - 19:00"></div>
+                    <div class="form-group"><label class="form-label">Horario Sábados</label><input type="text" name="horario_sabado" class="form-control" placeholder="Sábados: 09:00 - 14:00"></div>
+                    <div class="form-group"><label class="form-label">Vendedor 1 — Nombre</label><input type="text" name="emp1_nombre" class="form-control" placeholder="Nombre"></div>
+                    <div class="form-group"><label class="form-label">Vendedor 1 — WhatsApp</label><input type="text" name="emp1_tel" class="form-control" placeholder="15-xxxx-xxxx"></div>
+                    <div class="form-group"><label class="form-label">Vendedor 2 — Nombre</label><input type="text" name="emp2_nombre" class="form-control" placeholder="Nombre"></div>
+                    <div class="form-group"><label class="form-label">Vendedor 2 — WhatsApp</label><input type="text" name="emp2_tel" class="form-control" placeholder="15-xxxx-xxxx"></div>
+                  </div>
+                </fieldset>
+
+                <!-- MÓDULOS -->
+                <fieldset style="border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:1.5rem">
+                  <legend style="font-weight:700; font-size:0.95rem; color:var(--color-yellow); padding:0 0.5rem"><i class="fas fa-toggle-on"></i> Módulos</legend>
+                  <label style="display:flex; align-items:center; gap:0.75rem; cursor:pointer; font-size:0.95rem">
+                    <input type="checkbox" name="mostrar_financiacion" style="width:20px; height:20px; accent-color:var(--color-yellow)">
+                    Activar Simulador de Financiación (Alarfin)
+                  </label>
+                </fieldset>
+
+                <div style="display:flex; justify-content:flex-end; border-top:1px solid rgba(255,255,255,0.1); padding-top:1.5rem">
+                  <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar Configuración</button>
+                </div>
+              </form>
             </div>
           </div>
 
@@ -1213,11 +1322,10 @@
               </div>
               <div style="flex:1">
                 <input type="url" id="efLogo" class="form-control" placeholder="https://..." style="margin-bottom:.5rem">
+                <input type="file" id="efLogoFile" style="display:none" accept="image/*">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="$('#efLogoFile').click()">
                   <i class="fas fa-upload"></i> Subir imagen
                 </button>
-                <input type="file" id="efLogoFile" style="display:none" accept="image/*" onchange="handleLogoUpload(event)">
-              </div>
             </div>
           </div>
           <div class="form-group">
@@ -1243,8 +1351,8 @@
   <!-- SheetJS & JSZip -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/supabase-client.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/config.js?v=5"></script>
+  <script src="js/supabase-client.js?v=5"></script>
+  <script src="js/admin.js?v=5"></script>
 </body>
 </html>

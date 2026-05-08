@@ -7,7 +7,7 @@
   <meta name="theme-color" content="#F5D80A">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>BBruno Automotores | Tristán Suárez, Ezeiza</title>
+  <title id="pageTitle">Cargando...</title>
   <!-- PWA -->
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icons/logo.png">
@@ -20,7 +20,8 @@
   <!-- Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css">
   <!-- Styles -->
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=5">
+  <link rel="stylesheet" href="css/vehicle.css?v=5">
   <style>
     /* Estilos específicos de la página pública */
     .brand-strip {
@@ -136,7 +137,7 @@
 <body>
 
   <!-- Announcement bar -->
-  <div class="brand-strip">
+  <div class="brand-strip" id="brandStrip">
     📍 Tristán Suárez, Ezeiza, Bs.As. &nbsp;|&nbsp; 
     <a href="https://wa.me/541523150051" target="_blank">📱 WhatsApp: 15-2315-0051</a>
     &nbsp;|&nbsp; Compro · Vendo · Permuto · Financio
@@ -145,8 +146,9 @@
   <!-- NAVBAR -->
   <nav class="navbar" role="navigation" aria-label="Navegación principal">
     <div class="container navbar-inner">
-      <a href="index.html" class="navbar-brand" aria-label="BBruno Automotores - Inicio">
-        <img src="https://bbrunoautomotores.com/wp-content/uploads/2022/01/cropped-WhatsApp-Image-2022-01-26-at-14.12.08-1.jpeg" alt="BBruno Automotores" class="navbar-logo-img">
+      <a href="index.html" class="navbar-brand">
+        <img src="" alt="" id="navbarLogo" class="navbar-logo-img" style="display:none">
+        <span id="navbarTitle" style="font-weight:800; font-size:1.4rem; color:var(--color-yellow)"></span>
       </a>
       <ul class="navbar-nav" id="navMenu" role="menubar">
         <li role="none"><a href="index.html" class="nav-link active" role="menuitem">Inicio</a></li>
@@ -170,16 +172,16 @@
     <div class="hero-grid-lines" aria-hidden="true"></div>
     <div class="container">
       <div class="hero-content">
-        <p class="hero-tagline">
+        <p class="hero-tagline" id="heroBadge">
           <i class="fas fa-shield-halved" aria-hidden="true"></i>
           Concesionaria de Confianza · Tristán Suárez
         </p>
-        <h1 class="hero-title">
+        <h1 class="hero-title" id="heroTitle">
           Tu próximo<br>
           <span class="highlight">auto ideal</span><br>
           te espera.
         </h1>
-        <p class="hero-subtitle">
+        <p class="hero-subtitle" id="heroSubtitle">
           En BBruno Automotores encontrás el vehículo que buscás con toda la confianza que merecés. 
           Compra, venta, permuta y financiación en Ezeiza, Bs.As.
         </p>
@@ -188,7 +190,7 @@
             <i class="fas fa-car" aria-hidden="true"></i>
             Ver catálogo
           </a>
-          <a href="https://wa.me/541123150051" target="_blank" rel="noopener" class="btn btn-ghost btn-lg">
+          <a href="#" id="heroWhatsappBtn" target="_blank" rel="noopener" class="btn btn-ghost btn-lg">
             <i class="fab fa-whatsapp" aria-hidden="true"></i>
             Consultar por WhatsApp
           </a>
@@ -199,12 +201,12 @@
             <div class="stat-label">Vehículos</div>
           </div>
           <div class="stat-item">
-            <div class="stat-number">310K</div>
-            <div class="stat-label">Seguidores</div>
+            <div class="stat-number" id="statSeg">310K</div>
+            <div class="stat-label" id="statSegLabel">Seguidores</div>
           </div>
           <div class="stat-item">
-            <div class="stat-number">+10</div>
-            <div class="stat-label">Años de exp.</div>
+            <div class="stat-number" id="statExp">+10</div>
+            <div class="stat-label" id="statExpLabel">Años de exp.</div>
           </div>
         </div>
       </div>
@@ -432,29 +434,29 @@
     <div class="container">
       <div class="section-header text-center">
         <p class="section-label"><span>Por qué elegirnos</span></p>
-        <h2 class="section-title">La diferencia <span class="text-yellow">BBruno Automotores</span></h2>
-        <p class="section-subtitle">Más de una década acompañando a familias en la compra de su vehículo</p>
+        <h2 class="section-title" id="nosotrosTitulo">La diferencia <span class="text-yellow">BBruno Automotores</span></h2>
+        <p class="section-subtitle" id="nosotrosSubtitulo">Más de una década acompañando a familias en la compra de su vehículo</p>
       </div>
       <div class="grid grid-4" id="whyGrid">
         <div class="why-card fade-in-up">
           <div class="why-icon"><i class="fas fa-shield-halved" aria-hidden="true"></i></div>
-          <h3 class="why-title">Confianza probada</h3>
-          <p class="why-desc">310.000 seguidores avalan nuestra trayectoria y transparencia en cada operación.</p>
+          <h3 class="why-title" id="card1Titulo">Confianza probada</h3>
+          <p class="why-desc" id="card1Desc">310.000 seguidores avalan nuestra trayectoria y transparencia en cada operación.</p>
         </div>
         <div class="why-card fade-in-up" style="animation-delay:.1s">
           <div class="why-icon"><i class="fas fa-search-dollar" aria-hidden="true"></i></div>
-          <h3 class="why-title">Mejores precios</h3>
-          <p class="why-desc">Compramos y vendemos al mejor valor del mercado. Permutamos tu auto sin rodeos.</p>
+          <h3 class="why-title" id="card2Titulo">Mejores precios</h3>
+          <p class="why-desc" id="card2Desc">Compramos y vendemos al mejor valor del mercado. Permutamos tu auto sin rodeos.</p>
         </div>
         <div class="why-card fade-in-up" style="animation-delay:.2s">
           <div class="why-icon"><i class="fas fa-file-contract" aria-hidden="true"></i></div>
-          <h3 class="why-title">Documentación al día</h3>
-          <p class="why-desc">Todos nuestros vehículos con título en orden, VTV vigente y sin deudas.</p>
+          <h3 class="why-title" id="card3Titulo">Documentación al día</h3>
+          <p class="why-desc" id="card3Desc">Todos nuestros vehículos con título en orden, VTV vigente y sin deudas.</p>
         </div>
         <div class="why-card fade-in-up" style="animation-delay:.3s">
           <div class="why-icon"><i class="fas fa-handshake-angle" aria-hidden="true"></i></div>
-          <h3 class="why-title">Atención personalizada</h3>
-          <p class="why-desc">Lucas y Kevin te asesoran sin presión para que elijas el auto que realmente necesitás.</p>
+          <h3 class="why-title" id="card4Titulo">Atención personalizada</h3>
+          <p class="why-desc" id="card4Desc">Lucas y Kevin te asesoran sin presión para que elijas el auto que realmente necesitás.</p>
         </div>
       </div>
     </div>
@@ -468,33 +470,33 @@
       <div class="section-header text-center">
         <p class="section-label"><span>Contacto</span></p>
         <h2 class="section-title">Encontranos</h2>
-        <p class="section-subtitle">Estamos en Tristán Suárez, Ezeiza. ¡Te esperamos!</p>
+        <p class="section-subtitle" id="contactoSubtitulo">Estamos en Tristán Suárez, Ezeiza. ¡Te esperamos!</p>
       </div>
-      <div class="grid grid-3">
+      <div class="grid grid-3" id="contactGrid">
         <div class="contact-card">
           <div class="contact-icon"><i class="fas fa-map-marker-alt" aria-hidden="true"></i></div>
           <div class="contact-label">Ubicación</div>
-          <div class="contact-value">Tristán Suárez</div>
-          <div class="contact-sub">Ezeiza, Buenos Aires, Argentina</div>
-          <a href="https://maps.app.goo.gl/VFjRoMBTE86QEoJY7" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-top:1rem">
+          <div class="contact-value" id="contactUbicacion">Tristán Suárez</div>
+          <div class="contact-sub" id="contactUbicacionSub">Ezeiza, Buenos Aires, Argentina</div>
+          <a href="https://maps.app.goo.gl/VFjRoMBTE86QEoJY7" id="contactMapsLink" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-top:1rem">
             <i class="fas fa-map" aria-hidden="true"></i> Ver en Maps
           </a>
         </div>
         <div class="contact-card">
           <div class="contact-icon"><i class="fab fa-whatsapp" aria-hidden="true"></i></div>
           <div class="contact-label">WhatsApp</div>
-          <div class="contact-value">15-2315-0051</div>
-          <div class="contact-sub">También: Lucas 15-2315-0051 | Kevin 15-6190-0965</div>
-          <a href="https://wa.me/541523150051" target="_blank" rel="noopener" class="btn whatsapp-btn btn-sm" style="margin-top:1rem;background:#25D366;color:#fff;border-color:#25D366">
+          <div class="contact-value" id="contactWhatsapp">15-2315-0051</div>
+          <div class="contact-sub" id="contactWhatsappSub">También: Lucas 15-2315-0051 | Kevin 15-6190-0965</div>
+          <a href="https://wa.me/541523150051" id="contactWhatsappBtn" target="_blank" rel="noopener" class="btn whatsapp-btn btn-sm" style="margin-top:1rem;background:#25D366;color:#fff;border-color:#25D366">
             <i class="fab fa-whatsapp" aria-hidden="true"></i> Enviar mensaje
           </a>
         </div>
         <div class="contact-card">
           <div class="contact-icon"><i class="fab fa-instagram" aria-hidden="true"></i></div>
           <div class="contact-label">Instagram</div>
-          <div class="contact-value">@bbrunoautomotores</div>
-          <div class="contact-sub">310K seguidores · 4000+ publicaciones</div>
-          <a href="https://www.instagram.com/bbrunoautomotores/" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-top:1rem">
+          <div class="contact-value" id="contactInstagram">@bbrunoautomotores</div>
+          <div class="contact-sub" id="contactInstagramSub">310K seguidores · 4000+ publicaciones</div>
+          <a href="https://www.instagram.com/bbrunoautomotores/" id="contactInstagramBtn" target="_blank" rel="noopener" class="btn btn-outline btn-sm" style="margin-top:1rem">
             <i class="fab fa-instagram" aria-hidden="true"></i> Seguirnos
           </a>
         </div>
@@ -529,7 +531,7 @@
               </div>
             </div>
             <div style="text-align: right;">
-              <strong style="display:block; font-size: 1.4rem; font-family: var(--font-display); color: var(--color-yellow); line-height: 1.1;">09:00 - 19:00</strong>
+              <strong id="horarioSemanaText" style="display:block; font-size: 1.4rem; font-family: var(--font-display); color: var(--color-yellow); line-height: 1.1;">09:00 - 19:00</strong>
               <span style="font-size: 0.75rem; color: var(--color-gray-light);">Horario corrido</span>
             </div>
           </div>
@@ -544,7 +546,7 @@
               </div>
             </div>
             <div style="text-align: right;">
-              <strong style="display:block; font-size: 1.4rem; font-family: var(--font-display); color: var(--color-yellow); line-height: 1.1;">09:00 - 14:00</strong>
+              <strong id="horarioSabadoText" style="display:block; font-size: 1.4rem; font-family: var(--font-display); color: var(--color-yellow); line-height: 1.1;">09:00 - 14:00</strong>
               <span style="font-size: 0.75rem; color: var(--color-gray-light);">Medio día</span>
             </div>
           </div>
@@ -608,20 +610,20 @@
       <div class="footer-grid">
         <div>
           <div class="navbar-brand" style="margin-bottom:0.75rem">
-            <img src="https://bbrunoautomotores.com/wp-content/uploads/2022/01/cropped-WhatsApp-Image-2022-01-26-at-14.12.08-1.jpeg" alt="BBruno Automotores" class="navbar-logo-img">
+            <img src="" alt="" id="footerLogo" class="navbar-logo-img">
           </div>
-          <p class="footer-brand-text">
+          <p class="footer-brand-text" id="footerDesc">
             Concesionaria de vehículos usados y nuevos ubicada en Tristán Suárez, Ezeiza, Buenos Aires. 
             Más de una década brindando confianza a cada familia argentina.
           </p>
           <div class="footer-social" aria-label="Redes sociales">
-            <a href="https://www.instagram.com/bbrunoautomotores/" target="_blank" rel="noopener" class="social-link" aria-label="Instagram BBruno Automotores">
+            <a href="#" id="footerInstagram" target="_blank" rel="noopener" class="social-link" aria-label="Instagram">
               <i class="fab fa-instagram" aria-hidden="true"></i>
             </a>
-            <a href="https://wa.me/541123150051" target="_blank" rel="noopener" class="social-link" aria-label="WhatsApp BBruno Automotores">
+            <a href="#" id="footerWhatsapp" target="_blank" rel="noopener" class="social-link" aria-label="WhatsApp">
               <i class="fab fa-whatsapp" aria-hidden="true"></i>
             </a>
-            <a href="https://www.facebook.com/bbrunoautos/" target="_blank" rel="noopener" class="social-link" aria-label="Facebook BBruno Automotores">
+            <a href="#" id="footerFacebook" target="_blank" rel="noopener" class="social-link" aria-label="Facebook">
               <i class="fab fa-facebook-f" aria-hidden="true"></i>
             </a>
           </div>
@@ -644,29 +646,29 @@
             <a href="#" class="footer-link"><i class="fas fa-chevron-right" style="font-size:.7rem;margin-right:.3rem" aria-hidden="true"></i>Financiación</a>
           </nav>
         </div>
-        <div>
+        <div id="footerContactCol">
           <h4 class="footer-heading">Contacto</h4>
-          <div class="footer-contact-item">
+          <div class="footer-contact-item" id="footerUbicacion">
             <i class="fas fa-map-marker-alt" aria-hidden="true"></i>
             <span>Tristán Suárez, Ezeiza, Bs.As.</span>
           </div>
-          <div class="footer-contact-item">
+          <div class="footer-contact-item" id="footerTel">
             <i class="fab fa-whatsapp" aria-hidden="true"></i>
             <span>15-2315-0051</span>
           </div>
-          <div class="footer-contact-item">
+          <div class="footer-contact-item" id="footerEmp1">
             <i class="fas fa-user" aria-hidden="true"></i>
             <span>Lucas: 15-2315-0051</span>
           </div>
-          <div class="footer-contact-item">
+          <div class="footer-contact-item" id="footerEmp2">
             <i class="fas fa-user" aria-hidden="true"></i>
             <span>Kevin: 15-6190-0965</span>
           </div>
         </div>
       </div>
       <div class="footer-bottom">
-        <span>© 2025 BBruno Automotores. Todos los derechos reservados.</span>
-        <span>Desarrollado con ❤️ para <a href="https://www.instagram.com/bbrunoautomotores/" target="_blank" rel="noopener">@bbrunoautomotores</a></span>
+        <span id="footerCopyright">© 2025 BBruno Automotores. Todos los derechos reservados.</span>
+        <span>Desarrollado con ❤️</span>
       </div>
     </div>
   </footer>
@@ -675,8 +677,8 @@
   <div class="toast-container" id="toastContainer" aria-live="assertive" aria-atomic="true"></div>
 
   <!-- JS -->
-  <script src="js/config.js"></script>
-  <script src="js/supabase-client.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/config.js?v=5"></script>
+  <script src="js/supabase-client.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>

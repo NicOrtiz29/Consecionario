@@ -9,21 +9,27 @@
 
 const SupabaseClient = (() => {
   const config = () => window.APP_CONFIG || {};
-  const url = () => config().SUPABASE_URL;
-  const key = () => config().SUPABASE_ANON_KEY;
+  const apiBase = () => config().API_URL;
 
   function headers(extra = {}) {
-    return {
-      'apikey': key(),
-      'Authorization': `Bearer ${key()}`,
+    const h = {
       'Content-Type': 'application/json',
-      'Prefer': 'return=representation',
       ...extra,
     };
+    // Si hay token de admin, lo pasamos
+    const token = localStorage.getItem('bbruno_admin_token');
+    if (token) h['Authorization'] = `Bearer ${token}`;
+    
+    // Si hay empresa seleccionada (superadmin), la pasamos
+    const override = localStorage.getItem('active_empresa_id');
+    if (override) h['X-Empresa-Id'] = override;
+
+    return h;
   }
 
   function restUrl(table, query = '') {
-    return `${url()}/rest/v1/${table}${query ? '?' + query : ''}`;
+    // Apuntamos a nuestra propia API que actúa de proxy seguro
+    return `${apiBase()}/tables/${table}${query ? '?' + query : ''}`;
   }
 
   /**
