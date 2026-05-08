@@ -240,8 +240,11 @@ exports.handler = async (event) => {
       if (isSuperAdmin(user) && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
       
       const body = JSON.parse(event.body);
+      
+      // Aseguramos que guarde en 'empresas' y no intente buscar una tabla 'config'
       const { data, error } = await supabase.from('empresas').update(body).eq('id', empresaId).select();
       if (error) throw error;
+      
       await logAction(user, 'UPDATE_CONFIG', 'empresas', empresaId, body);
       return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data[0]) };
     }
