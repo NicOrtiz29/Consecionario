@@ -166,6 +166,22 @@ exports.handler = async (event) => {
       };
     }
 
+    // ── ADMIN CONFIG (Update branding) ──
+    if (path === 'admin/config' && event.httpMethod === 'POST') {
+      if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
+      let empresaId = user.empresa_id;
+      if (isSuperAdmin(user) && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
+      
+      const body = JSON.parse(event.body);
+      
+      // Aseguramos que guarde en 'empresas' y no intente buscar una tabla 'config'
+      const { data, error } = await supabase.from('empresas').update(body).eq('id', empresaId).select();
+      if (error) throw error;
+      
+      await logAction(user, 'UPDATE_CONFIG', 'empresas', empresaId, body);
+      return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data[0]) };
+    }
+
     // ── EMPRESAS / USERS (ADMIN) ──
     if (path.startsWith('admin/')) {
       if (!isSuperAdmin(user) && !isAdmin(user)) {
@@ -231,22 +247,6 @@ exports.handler = async (event) => {
       const { data: empresa, error } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
       if (error) throw error;
       return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(empresa) };
-    }
-
-    // ── ADMIN CONFIG (Update branding) ──
-    if (path === 'admin/config' && event.httpMethod === 'POST') {
-      if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
-      let empresaId = user.empresa_id;
-      if (isSuperAdmin(user) && event.headers['x-empresa-id']) empresaId = Number(event.headers['x-empresa-id']);
-      
-      const body = JSON.parse(event.body);
-      
-      // Aseguramos que guarde en 'empresas' y no intente buscar una tabla 'config'
-      const { data, error } = await supabase.from('empresas').update(body).eq('id', empresaId).select();
-      if (error) throw error;
-      
-      await logAction(user, 'UPDATE_CONFIG', 'empresas', empresaId, body);
-      return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(data[0]) };
     }
 
     // ── UPLOAD (Subida de imágenes a Supabase Storage) ──
