@@ -2018,7 +2018,9 @@ async function initAdmin(user) {
         });
 
         showToast('Éxito', 'Configuración de marca actualizada correctamente', 'success');
+        setTimeout(() => location.reload(), 1500);
     } catch (err) {
+        console.error('[Branding Error]', err);
         showToast('Error', 'No se pudo guardar: ' + err.message, 'error');
     } finally {
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Guardar Configuración'; }
