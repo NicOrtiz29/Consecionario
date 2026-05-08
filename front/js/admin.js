@@ -655,41 +655,53 @@ async function loadBranding() {
         const form = $('#brandingForm');
         if (!config || !form) return;
 
-        console.log('[Branding] Cargando configuración:', config);
+        console.log('[Branding] Datos recibidos del servidor:', config);
 
-        // Poblar todos los campos del formulario desde config (genérico)
+        // Asegurar que site_content sea un objeto (por si llega como string)
+        let siteContent = config.site_content || {};
+        if (typeof siteContent === 'string') {
+            try { siteContent = JSON.parse(siteContent); } catch(e) { siteContent = {}; }
+        }
+
+        // Poblar todos los campos del formulario
         const allFields = form.elements;
         for (let i = 0; i < allFields.length; i++) {
             const el = allFields[i];
             if (!el.name || el.type === 'submit') continue;
             
-            // Buscar en config directo o en site_content
+            // Prioridad: 1. Columna directa en la tabla, 2. Campo dentro de site_content
             let val = config[el.name];
-            if ((val === undefined || val === null) && config.site_content) {
-                val = config.site_content[el.name];
+            if (val === undefined || val === null) {
+                val = siteContent[el.name];
             }
 
             if (el.type === 'checkbox') {
                 el.checked = !!val;
             } else {
-                el.value = val || '';
+                el.value = (val !== undefined && val !== null) ? val : '';
             }
         }
 
-        // Actualizar previsualizaciones específicas
-        if (config.logo_url) {
-            const logoPreview = $('#branding_logo_preview'); // Si existe
-            if (logoPreview) logoPreview.innerHTML = `<img src="${config.logo_url}" style="max-height:80px">`;
+        // Actualizar previsualizaciones
+        const logoPreview = $('#branding_logo_preview');
+        if (logoPreview) {
+            logoPreview.innerHTML = config.logo_url 
+                ? `<img src="${config.logo_url}" style="max-height:80px">`
+                : `<i class="fas fa-image" style="color:var(--color-gray); font-size:1.5rem"></i>`;
         }
         
-        if (config.hero_bg_url || (config.site_content && config.site_content.hero_bg_url)) {
-            const bgUrl = config.hero_bg_url || config.site_content.hero_bg_url;
-            const bgPreview = $('#branding_hero_bg_preview'); // Si existe
-            if (bgPreview) bgPreview.innerHTML = `<img src="${bgUrl}" style="max-height:100px; width:100%; object-fit:cover; border-radius:8px">`;
+        const bgPreview = $('#branding_hero_bg_preview');
+        if (bgPreview) {
+            const bgUrl = config.hero_bg_url || siteContent.hero_bg_url;
+            bgPreview.innerHTML = bgUrl
+                ? `<img src="${bgUrl}" style="max-height:100px; width:100%; object-fit:cover; border-radius:8px">`
+                : `<i class="fas fa-image" style="color:var(--color-gray); font-size:1.5rem"></i>`;
         }
 
+        console.log('[Branding] Formulario poblado con éxito');
+
     } catch (err) {
-        console.error('[Branding] Error:', err);
+        console.error('[Branding] Error al cargar:', err);
         showToast('Error', 'No se pudo cargar la configuración de marca', 'error');
     }
 }
