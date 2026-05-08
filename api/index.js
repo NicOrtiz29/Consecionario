@@ -141,6 +141,26 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+
+
+app.get('/api/auth/verify', authenticateToken, async (req, res) => {
+  try {
+    const { data: user, error } = await supabase.from('admin_users').select('*').eq('id', req.user.id).single();
+    if (error || !user) return res.status(401).json({ error: 'Sesión inválida' });
+    
+    const { data: empresa } = await supabase.from('empresas').select('*').eq('id', user.empresa_id).single();
+    
+    res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      full_name: user.full_name,
+      empresa_id: user.empresa_id,
+      empresa: empresa ? { id: empresa.id, nombre: empresa.nombre } : null
+    });
+  } catch (err) { res.status(500).json({ error: 'Error de verificación' }); }
+});
+
 // ─── ENDPOINTS ───
 // Obtener configuración de marca (Público)
 app.get('/api/config', async (req, res) => {

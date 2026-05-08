@@ -134,6 +134,29 @@ exports.handler = async (event) => {
       };
     }
 
+    // ── AUTH: VERIFY ──
+    if (path === 'auth/verify' && event.httpMethod === 'GET') {
+      if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Sesión inválida' }) };
+      
+      const { data: userData, error } = await supabase.from('admin_users').select('*').eq('id', user.id).single();
+      if (error || !userData) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Usuario no encontrado' }) };
+      
+      const { data: empresa } = await supabase.from('empresas').select('*').eq('id', userData.empresa_id).single();
+      
+      return { 
+        statusCode: 200, 
+        headers: securityHeaders, 
+        body: JSON.stringify({
+          id: userData.id,
+          username: userData.username,
+          role: userData.role,
+          full_name: userData.full_name,
+          empresa_id: userData.empresa_id,
+          empresa: empresa ? { id: empresa.id, nombre: empresa.nombre } : null
+        }) 
+      };
+    }
+
     // ── EMPRESAS / USERS (ADMIN) ──
     if (path.startsWith('admin/')) {
       if (!isSuperAdmin(user) && !isAdmin(user)) {
