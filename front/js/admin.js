@@ -52,10 +52,17 @@ function showToast(title, msg = '', type = 'default') {
     console.warn('[Toast] No se encontró #toastContainer en el DOM');
     return;
   }
-  const icons = { success: '✅', error: '❌', warning: '⚠️', default: 'ℹ️', info: 'ℹ️', danger: '❌' };
+  const icons = { 
+    success: '<i class="fas fa-check-circle" style="color: var(--color-success)"></i>', 
+    error: '<i class="fas fa-circle-xmark" style="color: var(--color-danger)"></i>', 
+    warning: '<i class="fas fa-triangle-exclamation" style="color: var(--color-warning)"></i>', 
+    info: '<i class="fas fa-circle-info" style="color: var(--color-info)"></i>',
+    danger: '<i class="fas fa-circle-xmark" style="color: var(--color-danger)"></i>',
+    default: '<i class="fas fa-bell" style="color: var(--color-yellow)"></i>' 
+  };
   const t = document.createElement('div');
   t.className = `toast toast-${type}`;
-  t.innerHTML = `<span class="toast-icon">${icons[type]||'ℹ️'}</span><div class="toast-body"><div class="toast-title">${escapeHtml(title)}</div>${msg?`<div class="toast-message">${escapeHtml(msg)}</div>`:''}</div>`;
+  t.innerHTML = `<span class="toast-icon">${icons[type]||icons.default}</span><div class="toast-body"><div class="toast-title">${escapeHtml(title)}</div>${msg?`<div class="toast-message">${escapeHtml(msg)}</div>`:''}</div>`;
   c.appendChild(t);
   setTimeout(() => { 
     t.style.opacity='0'; 

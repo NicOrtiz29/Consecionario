@@ -113,7 +113,12 @@ function showToast(title, message = '', type = 'default') {
   const container = $('#toastContainer');
   if (!container) return;
 
-  const icons = { success: '✅', error: '❌', warning: '⚠️', default: 'ℹ️' };
+  const icons = { 
+    success: '<i class="fas fa-check-circle" style="color: var(--color-success)"></i>', 
+    error: '<i class="fas fa-circle-xmark" style="color: var(--color-danger)"></i>', 
+    warning: '<i class="fas fa-triangle-exclamation" style="color: var(--color-warning)"></i>', 
+    default: '<i class="fas fa-bell" style="color: var(--color-yellow)"></i>' 
+  };
   const toast = document.createElement('div');
   toast.className = `toast toast-${type}`;
   toast.innerHTML = `
