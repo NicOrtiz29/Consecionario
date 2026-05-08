@@ -15,8 +15,16 @@ async function detectTenantId(hostname) {
   let empresaId = 1;
   if (hostname && !hostname.includes('localhost') && !hostname.includes('127.0.0.1')) {
     const cleanHost = hostname.replace(/^https?:\/\//, '').split('/')[0].toLowerCase();
-    const { data: emps } = await supabase.from('empresas').select('id, dominio');
-    const match = emps?.find(e => e.dominio?.toLowerCase().includes(cleanHost) || cleanHost.includes(e.dominio?.toLowerCase()));
+    const { data: emps } = await supabase.from('empresas').select('id, dominio, nombre');
+    
+    // Búsqueda flexible: que el host contenga el dominio o que el dominio contenga parte del host
+    const match = emps?.find(e => {
+      if (!e.dominio) return false;
+      const dom = e.dominio.toLowerCase();
+      const name = (e.nombre || '').toLowerCase();
+      return cleanHost.includes(dom) || dom.includes(cleanHost) || cleanHost.includes(name.split(' ')[0]);
+    });
+    
     if (match) empresaId = match.id;
   }
   return empresaId;
