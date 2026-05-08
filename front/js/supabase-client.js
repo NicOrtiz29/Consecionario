@@ -75,7 +75,8 @@ const SupabaseClient = (() => {
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
     const data = await res.json();
-    return data[0] || null;
+    // Robustez: si es array tomamos el primero, si es objeto lo devolvemos directo
+    return Array.isArray(data) ? (data[0] || null) : (data || null);
   }
 
   /**
@@ -89,7 +90,7 @@ const SupabaseClient = (() => {
     });
     if (!res.ok) throw new Error(`Error ${res.status}`);
     const data = await res.json();
-    return data[0] || null;
+    return Array.isArray(data) ? (data[0] || null) : (data || null);
   }
 
   /**
