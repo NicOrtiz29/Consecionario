@@ -514,6 +514,16 @@ async function handleBrandingImageUpload(file, targetInputId) {
       input.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
+    // Actualizar previsualización si es logo o hero
+    if (targetInputId === 'branding_logo_url') {
+        const p = $('#branding_logo_preview');
+        if (p) p.innerHTML = `<img src="${publicUrl}" style="max-height:80px">`;
+    }
+    if (targetInputId === 'branding_hero_bg_url') {
+        const p = $('#branding_hero_bg_preview');
+        if (p) p.innerHTML = `<img src="${publicUrl}" style="max-height:100px; width:100%; object-fit:cover; border-radius:8px">`;
+    }
+
     showToast('¡Éxito!', 'Imagen cargada correctamente.', 'success');
     return publicUrl;
   } catch (err) {
@@ -645,6 +655,8 @@ async function loadBranding() {
         const form = $('#brandingForm');
         if (!config || !form) return;
 
+        console.log('[Branding] Cargando configuración:', config);
+
         // Poblar todos los campos del formulario desde config (genérico)
         const allFields = form.elements;
         for (let i = 0; i < allFields.length; i++) {
@@ -653,7 +665,7 @@ async function loadBranding() {
             
             // Buscar en config directo o en site_content
             let val = config[el.name];
-            if (val === undefined && config.site_content) {
+            if ((val === undefined || val === null) && config.site_content) {
                 val = config.site_content[el.name];
             }
 
@@ -663,6 +675,19 @@ async function loadBranding() {
                 el.value = val || '';
             }
         }
+
+        // Actualizar previsualizaciones específicas
+        if (config.logo_url) {
+            const logoPreview = $('#branding_logo_preview'); // Si existe
+            if (logoPreview) logoPreview.innerHTML = `<img src="${config.logo_url}" style="max-height:80px">`;
+        }
+        
+        if (config.hero_bg_url || (config.site_content && config.site_content.hero_bg_url)) {
+            const bgUrl = config.hero_bg_url || config.site_content.hero_bg_url;
+            const bgPreview = $('#branding_hero_bg_preview'); // Si existe
+            if (bgPreview) bgPreview.innerHTML = `<img src="${bgUrl}" style="max-height:100px; width:100%; object-fit:cover; border-radius:8px">`;
+        }
+
     } catch (err) {
         console.error('[Branding] Error:', err);
         showToast('Error', 'No se pudo cargar la configuración de marca', 'error');
