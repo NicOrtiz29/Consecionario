@@ -2244,7 +2244,7 @@ async function loadDynamicLogo() {
         loginLogo.onerror = () => { loginLogo.style.display = 'none'; };
       }
     }
-
+  } catch(e) { /* Silently fail for logo loading */ }
 }
 
 // ── Bootstrap ──
