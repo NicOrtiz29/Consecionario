@@ -46,7 +46,7 @@ function getMaintTypeLabel(t) {
 // (Removida redundancia de escapeHtml)
 
 function showToast(title, msg = '', type = 'default') {
-  console.log(`[Toast] ${type.toUpperCase()}: ${title} - ${msg}`);
+
   const c = $('#toastContainer'); 
   if (!c) {
     console.warn('[Toast] No se encontró #toastContainer en el DOM');
@@ -356,7 +356,7 @@ window.addPhoto = async function() {
       }
       url = `https://images.weserv.nl/?url=${encodeURIComponent(igUrl)}&default=https://placehold.co/800x600/2b2b2b/888?text=Instagram+No+Disponible`;
       
-      console.log('[Admin] IG portada procesada:', { shortcode, finalUrl: url });
+
     } catch (e) {
       console.warn('Error procesando link de IG:', e);
     }
@@ -662,7 +662,7 @@ async function loadBranding() {
         const form = $('#brandingForm');
         if (!config || !form) return;
 
-        console.log('[Branding] Datos recibidos del servidor:', config);
+
 
         // Asegurar que site_content sea un objeto (por si llega como string)
         let siteContent = config.site_content || {};
@@ -736,7 +736,7 @@ async function loadBranding() {
                 : `<i class="fas fa-image" style="color:var(--color-gray); font-size:1.5rem"></i>`;
         }
 
-        console.log('[Branding] Formulario poblado con éxito');
+
 
     } catch (err) {
         console.error('[Branding] Error al cargar:', err);
@@ -2098,7 +2098,7 @@ async function initAdmin(user) {
     if (isModalOpen) return; // No refrescar si el usuario está editando algo
 
     try {
-      console.log('[AutoRefresh] Refrescando datos para evitar inactividad...');
+
       await Promise.all([loadLeads(), loadVehicles()]);
     } catch (err) {
       console.warn('[AutoRefresh] Error al refrescar datos:', err);
@@ -2244,7 +2244,7 @@ async function loadDynamicLogo() {
         loginLogo.onerror = () => { loginLogo.style.display = 'none'; };
       }
     }
-  } catch(e) { console.log('[Logo] No se pudo cargar logo dinámico'); }
+
 }
 
 // ── Bootstrap ──

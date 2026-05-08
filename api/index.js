@@ -402,7 +402,7 @@ app.post('/api/upload', authenticateToken, async (req, res) => {
 
     const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${safeName}`;
     
-    console.log('[Upload] Imagen subida:', publicUrl);
+
     res.json({ url: publicUrl });
   } catch (err) {
     console.error('[Upload] Error:', err.message);
