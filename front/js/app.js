@@ -200,8 +200,11 @@ function renderVehicleCard(v) {
   // Optimizamos fotos: Límite de 8 y usamos transformación de Supabase (ancho 600, calidad 75)
   // Esto reduce el peso de cada imagen descargada drásticamente.
   const optimizeUrl = (url) => {
-    if (url && url.includes('/storage/v1/render/image/public/')) {
-      return `${url}?width=600&quality=75&format=webp`;
+    if (url && url.includes('/storage/v1/object/public/')) {
+      // Si queremos usar la transformación de Supabase, la ruta cambia a /render/image/public/
+      // Pero si no está habilitada, mejor dejamos la original por ahora para no romper nada.
+      // return url.replace('/object/public/', '/render/image/public/') + '?width=600&quality=75&format=webp';
+      return url; 
     }
     return url;
   };
@@ -259,7 +262,6 @@ function renderVehicleCard(v) {
         <div class="vehicle-card-brand">${escapeHtml(v.brand || '')}</div>
         <h3 class="vehicle-card-title">${escapeHtml(v.year || '')} ${escapeHtml(v.model || '')}</h3>
         <div class="vehicle-card-version">${escapeHtml(v.version || '')}</div>
-vehicle-card-version">${v.version || ''}</div>
         <div class="vehicle-card-specs">
           <div class="spec-item">
             <i class="fas fa-road" aria-hidden="true"></i>
