@@ -663,16 +663,47 @@ async function loadBranding() {
             try { siteContent = JSON.parse(siteContent); } catch(e) { siteContent = {}; }
         }
 
+        // Valores por defecto basados en lo que hay actualmente en la web (hardcoded)
+        const defaults = {
+            hero_badge: 'Concesionaria de Confianza · Tristán Suárez',
+            hero_titulo: 'Tu próximo auto ideal te espera.',
+            hero_subtitulo: 'En BBruno Automotores encontrás el vehículo que buscás con toda la confianza que merecés.',
+            stat_seguidores: '310K',
+            stat_seguidores_label: 'Seguidores',
+            stat_experiencia: '+10',
+            stat_experiencia_label: 'Años de exp.',
+            nosotros_titulo: 'La diferencia BBruno Automotores',
+            nosotros_subtitulo: 'Más de una década acompañando a familias en la compra de su vehículo',
+            card1_titulo: 'Confianza probada',
+            card1_desc: '310.000 seguidores avalan nuestra trayectoria y transparencia en cada operación.',
+            card2_titulo: 'Mejores precios',
+            card2_desc: 'Compramos y vendemos al mejor valor del mercado. Permutamos tu auto sin rodeos.',
+            card3_titulo: 'Documentación al día',
+            card3_desc: 'Todos nuestros vehículos con título en orden, VTV vigente y sin deudas.',
+            card4_titulo: 'Atención personalizada',
+            card4_desc: 'Lucas y Kevin te asesoran sin presión para que elijas el auto que realmente necesitás.',
+            footer_descripcion: 'Concesionaria de vehículos usados y nuevos ubicada en Tristán Suárez, Ezeiza, Buenos Aires. Más de una década brindando confianza a cada familia argentina.',
+            horario_semana: 'Lunes a Viernes: 09:00 - 19:00',
+            horario_sabado: 'Sábados: 09:00 - 14:00',
+            whatsapp: '541123150051',
+            direccion: 'Tristán Suárez, Ezeiza, Bs.As.',
+            instagram: 'bbrunoautomotores'
+        };
+
         // Poblar todos los campos del formulario
         const allFields = form.elements;
         for (let i = 0; i < allFields.length; i++) {
             const el = allFields[i];
-            if (!el.name || el.type === 'submit') continue;
+            const fieldName = el.name;
+            if (!fieldName || el.type === 'submit') continue;
             
-            // Prioridad: 1. Columna directa en la tabla, 2. Campo dentro de site_content
-            let val = config[el.name];
-            if (val === undefined || val === null) {
-                val = siteContent[el.name];
+            // Prioridad: 1. Columna directa, 2. site_content, 3. Valor por defecto de la web
+            let val = config[fieldName];
+            if (val === undefined || val === null || val === '') {
+                val = siteContent[fieldName];
+            }
+            if (val === undefined || val === null || val === '') {
+                val = defaults[fieldName];
             }
 
             if (el.type === 'checkbox') {
