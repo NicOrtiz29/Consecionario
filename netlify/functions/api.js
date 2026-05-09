@@ -250,6 +250,33 @@ exports.handler = async (event) => {
       return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(empresa) };
     }
 
+    // ── LEADS (Público - envío de consultas) ──
+    if (path === 'public/leads' && event.httpMethod === 'POST') {
+      const hostname = event.headers.host || '';
+      const empresaId = await detectTenantId(hostname);
+      const body = JSON.parse(event.body);
+      
+      const leadData = {
+        empresa_id: empresaId,
+        nombre: body.nombre || body.name || 'Sin nombre',
+        telefono: body.telefono || body.phone || 'Sin teléfono',
+        mensaje: body.mensaje || body.message || '',
+        email: body.email || '',
+        vehicle_id: body.vehicle_id || null,
+        source: body.source || 'web_detail',
+        status: 'nuevo',
+        created_at: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase.from('leads').insert([leadData]).select();
+      if (error) {
+        console.error('[Public Lead Error]:', error);
+        return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: 'Error guardando consulta' }) };
+      }
+      
+      return { statusCode: 201, headers: securityHeaders, body: JSON.stringify({ success: true, id: data[0].id }) };
+    }
+
     // ── UPLOAD (Subida de imágenes a Supabase Storage) ──
     if (path === 'upload' && event.httpMethod === 'POST') {
       if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
