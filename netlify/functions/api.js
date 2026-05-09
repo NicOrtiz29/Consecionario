@@ -260,7 +260,7 @@ exports.handler = async (event) => {
         empresa_id: empresaId,
         nombre: body.nombre || body.name || 'Sin nombre',
         telefono: body.telefono || body.phone || 'Sin teléfono',
-        mensaje: body.mensaje || body.message || '',
+        message: body.mensaje || body.message || '', // Corregido a 'message'
         email: body.email || '',
         vehicle_id: body.vehicle_id || null,
         source: body.source || 'web_detail',
