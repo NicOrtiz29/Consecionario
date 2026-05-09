@@ -268,12 +268,15 @@ exports.handler = async (event) => {
           .replace(/_+/g, '_');
         const safeName = `${Date.now()}-${cleanName}`;
         
+        // Limpiar la llave por si tiene espacios o saltos de línea invisibles
+        const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+        
         const uploadRes = await fetch(
           `${process.env.SUPABASE_URL}/storage/v1/object/${bucket}/${safeName}`,
           {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY}`,
+              'Authorization': `Bearer ${supabaseKey}`,
               'Content-Type': contentType,
               'x-upsert': 'true'
             },
