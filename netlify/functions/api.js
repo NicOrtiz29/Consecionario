@@ -258,11 +258,11 @@ exports.handler = async (event) => {
       
       const leadData = {
         empresa_id: empresaId,
-        nombre: body.nombre || body.name || 'Sin nombre',
-        telefono: body.telefono || body.phone || 'Sin teléfono',
-        message: body.mensaje || body.message || '', // Corregido a 'message'
+        name: body.nombre || body.name || 'Sin nombre', // Según foto: 'name'
+        phone: body.telefono || body.phone || 'Sin teléfono', // Según foto: 'phone'
+        message: body.mensaje || body.message || '', // Según foto: 'message'
         email: body.email || '',
-        vehicle_id: body.vehicle_id || null,
+        vehicle_patent: body.vehicle_id || body.vehicle_patent || null, // Según foto: 'vehicle_patent'
         source: body.source || 'web_detail',
         status: 'nuevo',
         created_at: new Date().toISOString()
