@@ -268,15 +268,24 @@ exports.handler = async (event) => {
           .replace(/_+/g, '_');
         const safeName = `${Date.now()}-${cleanName}`;
         
-        // Limpiar la llave por si tiene espacios o saltos de línea invisibles
-        const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '').trim();
+        // Limpieza de URL y Llaves
+        const rawUrl = process.env.SUPABASE_URL || '';
+        const cleanUrl = rawUrl.endsWith('/') ? rawUrl.slice(0, -1) : rawUrl;
+        const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+        const anonKey = (process.env.SUPABASE_ANON_KEY || '').trim();
+        const finalKey = serviceKey || anonKey;
+
+        if (!finalKey) {
+          return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: 'Faltan llaves de Supabase en Netlify (SERVICE_ROLE_KEY o ANON_KEY)' }) };
+        }
         
         const uploadRes = await fetch(
-          `${process.env.SUPABASE_URL}/storage/v1/object/${bucket}/${safeName}`,
+          `${cleanUrl}/storage/v1/object/${bucket}/${safeName}`,
           {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${supabaseKey}`,
+              'apikey': finalKey,
+              'Authorization': `Bearer ${finalKey}`,
               'Content-Type': contentType,
               'x-upsert': 'true'
             },
