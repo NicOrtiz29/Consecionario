@@ -263,7 +263,6 @@ exports.handler = async (event) => {
         message: body.mensaje || body.message || '', // Según foto: 'message'
         email: body.email || '',
         vehicle_patent: body.vehicle_id || body.vehicle_patent || null, // Según foto: 'vehicle_patent'
-        source: body.source || 'web_detail',
         status: 'nuevo',
         created_at: new Date().toISOString()
       };
