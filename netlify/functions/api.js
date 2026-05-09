@@ -39,7 +39,7 @@ const securityHeaders = {
   'X-Frame-Options': 'DENY',
   'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://simulador.alarfin.com.ar; img-src 'self' data: https://*.supabase.co; connect-src 'self' data: https://*.supabase.co https://simulador.alarfin.com.ar;",
+  'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://simulador.alarfin.com.ar; img-src 'self' data: https://*.supabase.co https://images.weserv.nl https://placehold.co; connect-src 'self' data: https://*.supabase.co https://simulador.alarfin.com.ar;",
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
 };
 
