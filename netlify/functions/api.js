@@ -254,34 +254,50 @@ exports.handler = async (event) => {
     if (path === 'upload' && event.httpMethod === 'POST') {
       if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
       
-      const { base64, fileName, bucket = 'vehicles', contentType = 'image/jpeg' } = JSON.parse(event.body);
-      if (!base64) return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Falta base64' }) };
-      
-      const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
-      const buffer = Buffer.from(base64Data, 'base64');
-      const safeName = `${Date.now()}-${(fileName || 'image.jpg').replace(/\s+/g, '_')}`;
-      
-      const uploadRes = await fetch(
-        `${process.env.SUPABASE_URL}/storage/v1/object/${bucket}/${safeName}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY}`,
-            'Content-Type': contentType,
-            'x-upsert': 'true'
-          },
-          body: buffer
+      try {
+        const { base64, fileName, bucket = 'vehicles', contentType = 'image/jpeg' } = JSON.parse(event.body);
+        if (!base64) return { statusCode: 400, headers: securityHeaders, body: JSON.stringify({ error: 'Falta base64' }) };
+        
+        const base64Data = base64.includes(',') ? base64.split(',')[1] : base64;
+        const buffer = Buffer.from(base64Data, 'base64');
+        
+        // Limpieza agresiva de nombre de archivo
+        const cleanName = (fileName || 'image.jpg')
+          .toLowerCase()
+          .replace(/[^a-z0-9.]/g, '_')
+          .replace(/_+/g, '_');
+        const safeName = `${Date.now()}-${cleanName}`;
+        
+        const uploadRes = await fetch(
+          `${process.env.SUPABASE_URL}/storage/v1/object/${bucket}/${safeName}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY}`,
+              'Content-Type': contentType,
+              'x-upsert': 'true'
+            },
+            body: buffer
+          }
+        );
+        
+        if (!uploadRes.ok) {
+          const errBody = await uploadRes.text();
+          console.error('[Upload] Storage error:', uploadRes.status, errBody);
+          // Devolvemos el error detallado al cliente para debug
+          return { 
+            statusCode: uploadRes.status, 
+            headers: securityHeaders, 
+            body: JSON.stringify({ error: `Error de storage (${uploadRes.status}): ${errBody}` }) 
+          };
         }
-      );
-      
-      if (!uploadRes.ok) {
-        const errBody = await uploadRes.text();
-        console.error('[Upload] Storage error:', uploadRes.status, errBody);
-        return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: 'Error de storage: ' + uploadRes.status }) };
+        
+        const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${safeName}`;
+        return { statusCode: 200, headers: securityHeaders, body: JSON.stringify({ url: publicUrl }) };
+      } catch (err) {
+        console.error('[Upload] Catch error:', err);
+        return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: err.message }) };
       }
-      
-      const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/${bucket}/${safeName}`;
-      return { statusCode: 200, headers: securityHeaders, body: JSON.stringify({ url: publicUrl }) };
     }
 
     // ── ALARFIN DATA PROXY ──
