@@ -271,7 +271,11 @@ exports.handler = async (event) => {
       const { data, error } = await supabase.from('leads').insert([leadData]).select();
       if (error) {
         console.error('[Public Lead Error]:', error);
-        return { statusCode: 500, headers: securityHeaders, body: JSON.stringify({ error: 'Error guardando consulta' }) };
+        return { 
+          statusCode: 500, 
+          headers: securityHeaders, 
+          body: JSON.stringify({ error: `Error de base de datos: ${error.message} (${error.code})` }) 
+        };
       }
       
       return { statusCode: 201, headers: securityHeaders, body: JSON.stringify({ success: true, id: data[0].id }) };
