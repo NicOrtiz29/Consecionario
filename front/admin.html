@@ -1133,6 +1133,12 @@
           <input type="hidden" id="mfId">
           <div class="form-group">
             <label class="form-label" for="mfVehicle">Vehículo *</label>
+            <div style="margin-bottom: 0.5rem;">
+              <div class="admin-search">
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input type="text" id="mfVehicleSearch" class="form-control" placeholder="Buscar por patente..." aria-label="Buscar vehículo por patente" oninput="populateVehicleSelect(this.value)">
+              </div>
+            </div>
             <select id="mfVehicle" class="form-control" required>
               <option value="">— Seleccionar vehículo —</option>
             </select>

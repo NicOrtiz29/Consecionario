@@ -1131,12 +1131,19 @@ function filterVehiclesTable() {
   renderVehiclesTable(filtered);
 }
 
-function populateVehicleSelect() {
+function populateVehicleSelect(filter = '') {
   const sel = $('#mfVehicle');
   if (!sel) return;
   const current = sel.value;
+  const query = String(filter || '').toLowerCase();
+  
+  const filtered = allVehicles
+    .filter(v => !query || (v.patent || '').toLowerCase().includes(query) || (v.brand || '').toLowerCase().includes(query) || (v.model || '').toLowerCase().includes(query))
+    .sort((a, b) => (parseInt(a.year) || 0) - (parseInt(b.year) || 0));
+
   sel.innerHTML = '<option value="">— Seleccionar vehículo —</option>' +
-    allVehicles.map(v => `<option value="${v.patent}">${v.year} ${v.brand} ${v.model} [${v.patent}]</option>`).join('');
+    filtered.map(v => `<option value="${v.patent}">${v.year} ${v.brand} ${v.model} [${v.patent}]</option>`).join('');
+  
   if (current) sel.value = current;
 }
 
@@ -1210,6 +1217,8 @@ function openMaintenanceModal(id = null) {
   const form = $('#maintenanceForm');
   if (form) form.reset();
   $('#mfId').value = '';
+  if ($('#mfVehicleSearch')) $('#mfVehicleSearch').value = '';
+  populateVehicleSelect();
 
   maintPartsCtrl = initTagsInput('mfPartsContainer', 'mfPartInput', maintParts);
 
