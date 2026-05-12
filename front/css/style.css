@@ -800,11 +800,16 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 }
 
 @media (max-width: 480px) {
-  .container { padding: 0 1rem; }
-  .section { padding: 2.5rem 0; }
+  .container { padding: 0 0.75rem; }
+  .section { padding: 2rem 0; }
   .filter-grid { grid-template-columns: 1fr; }
-  .hero-title { font-size: 2rem; }
-  .detail-price { font-size: 1.8rem; }
+  .hero-title { font-size: 2.2rem; }
+  .detail-price { font-size: 2rem; }
+  
+  /* Compact cards for small screens */
+  .detail-info, .simulator-card, .inquiry-card { padding: 1.25rem; }
+  .cuotas-grid { grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+  .detail-specs { gap: 0.5rem; }
 }
 
 /* ============================================================

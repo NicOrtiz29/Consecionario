@@ -32,6 +32,50 @@
     }
     .detail-sidebar { position: sticky; top: 100px; }
 
+    /* Fix: Ensure images never exceed screen width */
+    img { max-width: 100%; height: auto; }
+
+    .gallery-main {
+      width: 100%;
+      background: var(--color-gray-dark);
+      border-radius: var(--border-radius-lg);
+      overflow: hidden;
+      aspect-ratio: 4/3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    #galleryMainImg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: opacity 0.2s ease;
+    }
+
+    .gallery-thumbs {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      overflow-x: auto;
+      padding-bottom: 0.5rem;
+      scrollbar-width: thin;
+    }
+    
+    .gallery-thumb {
+      flex: 0 0 80px;
+      aspect-ratio: 4/3;
+      cursor: pointer;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid transparent;
+      opacity: 0.6;
+      transition: all 0.2s;
+    }
+    
+    .gallery-thumb.active { border-color: var(--color-yellow); opacity: 1; }
+    .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
     .breadcrumb {
       display: flex; align-items: center; gap: 0.5rem;
       font-size: 0.82rem; color: var(--color-gray);
@@ -65,9 +109,7 @@
       display: flex; align-items: center; justify-content: center;
       padding: 1rem;
     }
-    #galleryMainImg {
-      transition: opacity 0.2s ease;
-    }
+
     .gallery-nav {
       position: absolute; top: 50%; transform: translateY(-50%);
       background: rgba(0,0,0,0.4); border: none;
@@ -81,6 +123,7 @@
     .gallery-prev { left: 1rem; }
     .gallery-next { right: 1rem; }
     .gallery-nav:hover { background: var(--color-yellow); color: var(--color-black); }
+    
     .lightbox-img {
       max-width: 100%; max-height: 90vh;
       border-radius: var(--border-radius);
@@ -112,9 +155,15 @@
     }
 
     @media (max-width: 900px) {
-      .detail-layout { grid-template-columns: 1fr; gap: 2rem; }
+      .detail-layout { grid-template-columns: 1fr; gap: 1.5rem; }
       .detail-sidebar { position: static; }
-      .detail-info { margin-top: 2rem; }
+      .detail-info { margin-top: 1rem; }
+      
+      /* Fix: reduce padding on mobile to avoid overflow */
+      .section { padding: 1.5rem 0; }
+      .container { padding: 0 1rem; }
+      
+      .gallery-main { aspect-ratio: 1/1; } /* Square on mobile looks better */
     }
 
     /* Page loader */
