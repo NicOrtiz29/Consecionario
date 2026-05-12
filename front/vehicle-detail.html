@@ -37,19 +37,20 @@
 
     .gallery-main {
       width: 100%;
-      background: var(--color-gray-dark);
+      background: var(--color-black);
       border-radius: var(--border-radius-lg);
       overflow: hidden;
-      aspect-ratio: 4/3;
+      aspect-ratio: 16/9;
       display: flex;
       align-items: center;
       justify-content: center;
+      border: 1px solid rgba(255,255,255,0.05);
     }
     
     #galleryMainImg {
       width: 100%;
       height: 100%;
-      object-fit: cover;
+      object-fit: contain; /* Contain is better for car photos of different ratios */
       transition: opacity 0.2s ease;
     }
 
@@ -58,28 +59,31 @@
       gap: 0.5rem;
       margin-top: 1rem;
       overflow-x: auto;
-      padding-bottom: 0.5rem;
-      scrollbar-width: thin;
+      padding: 0.5rem 0.25rem;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     }
+    .gallery-thumbs::-webkit-scrollbar { display: none; }
     
     .gallery-thumb {
-      flex: 0 0 80px;
+      flex: 0 0 70px;
       aspect-ratio: 4/3;
       cursor: pointer;
       border-radius: 8px;
       overflow: hidden;
       border: 2px solid transparent;
-      opacity: 0.6;
+      opacity: 0.5;
       transition: all 0.2s;
     }
     
-    .gallery-thumb.active { border-color: var(--color-yellow); opacity: 1; }
+    .gallery-thumb.active { border-color: var(--color-yellow); opacity: 1; transform: scale(1.05); }
     .gallery-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
     .breadcrumb {
       display: flex; align-items: center; gap: 0.5rem;
-      font-size: 0.82rem; color: var(--color-gray);
-      margin-bottom: 2rem; flex-wrap: wrap;
+      font-size: 0.75rem; color: var(--color-gray);
+      margin-bottom: 1.5rem; flex-wrap: wrap;
+      opacity: 0.8;
     }
     .breadcrumb a { color: var(--color-gray); transition: var(--transition); }
     .breadcrumb a:hover { color: var(--color-yellow); }
@@ -108,6 +112,8 @@
       background: rgba(0,0,0,0.95);
       display: flex; align-items: center; justify-content: center;
       padding: 1rem;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
     }
 
     .gallery-nav {
@@ -125,12 +131,12 @@
     .gallery-nav:hover { background: var(--color-yellow); color: var(--color-black); }
     
     .lightbox-img {
-      max-width: 100%; max-height: 90vh;
+      max-width: 100%; max-height: 85vh;
       border-radius: var(--border-radius);
       object-fit: contain;
     }
     .lightbox-close {
-      position: fixed; top: 1rem; right: 1rem;
+      position: fixed; top: calc(1rem + env(safe-area-inset-top)); right: 1rem;
       background: var(--color-gray-dark); border: none;
       color: var(--color-white); width: 44px; height: 44px;
       border-radius: 50%; font-size: 1.2rem;
@@ -149,21 +155,59 @@
     .lightbox-prev { left: 1rem; }
     .lightbox-next { right: 1rem; }
     .lightbox-counter {
-      position: fixed; bottom: 1rem; left: 50%; transform: translateX(-50%);
+      position: fixed; bottom: calc(1rem + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
       color: var(--color-gray-light); font-size: 0.85rem;
       background: rgba(0,0,0,0.5); padding: 0.25rem 1rem; border-radius: 50px;
     }
 
     @media (max-width: 900px) {
-      .detail-layout { grid-template-columns: 1fr; gap: 1.5rem; }
-      .detail-sidebar { position: static; }
-      .detail-info { margin-top: 1rem; }
+      .detail-layout { 
+        display: flex; 
+        flex-direction: column; 
+        gap: 1rem; 
+      }
+      .detail-sidebar { position: static; order: 10; }
+      .detail-info { 
+        margin-top: 0; 
+        order: 1; 
+        padding: 1.25rem !important;
+        border-radius: var(--border-radius-lg);
+      }
+      .detail-main-col { order: 2; }
       
-      /* Fix: reduce padding on mobile to avoid overflow */
-      .section { padding: 1.5rem 0; }
+      .detail-title { font-size: 1.6rem !important; }
+      .detail-price { font-size: 2.2rem !important; }
+
+      .section { padding: 1rem 0; }
       .container { padding: 0 1rem; }
       
-      .gallery-main { aspect-ratio: 1/1; } /* Square on mobile looks better */
+      .gallery-main { aspect-ratio: 3/2; } 
+    }
+
+    @media (min-width: 901px) {
+      .detail-info {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: start;
+      }
+      .detail-main-col {
+        grid-column: 1;
+        grid-row: 1 / span 20;
+      }
+      .detail-sidebar {
+        grid-column: 2;
+        grid-row: 2;
+        align-self: start;
+      }
+    }
+
+    /* PWA safe area support */
+    body {
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    .navbar {
+      padding-top: calc(0.75rem + env(safe-area-inset-top));
     }
 
     /* Page loader */
@@ -228,8 +272,31 @@
       </nav>
 
       <div class="detail-layout">
+        <!-- DETAIL INFO (Moved to top level for better mobile reordering) -->
+        <div class="detail-info" id="detailInfo">
+          <div class="detail-brand" id="detailBrand"></div>
+          <h1 class="detail-title" id="detailTitle"></h1>
+          <div class="detail-version" id="detailVersion"></div>
+
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap" id="statusBadges"></div>
+
+          <div class="detail-price-note" style="margin-bottom:0.25rem">Precio Total</div>
+          <div class="detail-price" id="detailPrice"></div>
+          <div id="detailDownPaymentContainer" style="display:none; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.06)">
+            <div class="detail-price-note" style="margin-bottom:0.25rem">Anticipo desde</div>
+            <div class="detail-price" id="detailDownPayment" style="font-size:1.5rem; color:var(--color-yellow)"></div>
+          </div>
+          <div class="detail-price-note" style="margin-top:0.5rem">Consultar financiación disponible</div>
+          
+          <!-- Quick Specs for mobile -->
+          <div class="detail-specs" id="detailSpecs" style="margin-top:1.5rem"></div>
+
+          <!-- Quick CTA for mobile -->
+          <div class="detail-cta" id="detailCTA" style="margin-top:1.5rem"></div>
+        </div>
+
         <!-- LEFT COLUMN -->
-        <div>
+        <div class="detail-main-col">
           <!-- Gallery -->
             <div class="gallery-main" style="position:relative">
               <button class="gallery-nav gallery-prev" onclick="navGallery(-1)" aria-label="Foto anterior">
@@ -281,28 +348,8 @@
 
         <!-- RIGHT COLUMN (sidebar) -->
         <div class="detail-sidebar">
-          <div class="detail-info" id="detailInfo">
-            <div class="detail-brand" id="detailBrand"></div>
-            <h1 class="detail-title" id="detailTitle"></h1>
-            <div class="detail-version" id="detailVersion"></div>
-
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;flex-wrap:wrap" id="statusBadges"></div>
-
-              <div class="detail-price-note" style="margin-bottom:0.25rem">Precio Total</div>
-              <div class="detail-price" id="detailPrice"></div>
-              <div id="detailDownPaymentContainer" style="display:none; margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.06)">
-                <div class="detail-price-note" style="margin-bottom:0.25rem">Anticipo desde</div>
-                <div class="detail-price" id="detailDownPayment" style="font-size:1.5rem; color:var(--color-yellow)"></div>
-              </div>
-              <div class="detail-price-note" style="margin-top:0.5rem">Consultar financiación disponible</div>
-            </div>
-
-            <div class="detail-specs" id="detailSpecs"></div>
-
-            <div class="detail-cta" id="detailCTA"></div>
-            
             <!-- Share & Back moved inside sidebar -->
-            <div class="share-btn-group" aria-label="Compartir vehículo" style="margin-top: 3rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 2rem;">
+            <div class="share-btn-group" aria-label="Compartir vehículo" style="margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.08);">
               <button onclick="shareVehicle()" class="btn btn-ghost btn-sm">
                 <i class="fas fa-share-nodes" aria-hidden="true"></i> Compartir
               </button>
