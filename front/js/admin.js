@@ -426,7 +426,7 @@ async function compressImage(base64, maxWidth = 1600, quality = 0.8) {
       ctx.drawImage(img, 0, 0, width, height);
       resolve(canvas.toDataURL('image/jpeg', quality));
     };
-    img.onerror = () => resolve(base64); // Fallback to original if error
+    img.onerror = () => reject(new Error('Formato de imagen no soportado (ej. HEIC). Usa JPG o PNG.'));
     img.src = base64;
   });
 }
@@ -462,6 +462,11 @@ async function processImageFile(file) {
   try {
     if (vehiclePhotos.length >= 8) {
       showToast('Límite alcanzado', 'Podés cargar hasta 8 fotos por vehículo.', 'warning');
+      return;
+    }
+
+    if (file.size > 15 * 1024 * 1024) {
+      showToast('Archivo muy grande', `La imagen "${file.name}" supera los 15MB. Por favor, subí una versión más liviana.`, 'warning');
       return;
     }
 

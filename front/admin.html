@@ -745,7 +745,7 @@
                       <label class="form-label">Logo de la Empresa</label>
                       <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
                         <input type="text" name="logo_url" id="branding_logo_url" class="form-control" placeholder="https://...">
-                        <input type="file" id="branding_logo_file" style="display:none" accept="image/*">
+                        <input type="file" id="branding_logo_file" style="display:none" accept="image/jpeg, image/png, image/webp">
                         <button type="button" class="btn btn-ghost btn-sm" onclick="$('#branding_logo_file').click()"><i class="fas fa-upload"></i></button>
                       </div>
                       <div id="branding_logo_preview" style="height:80px; background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.1); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden">
@@ -767,7 +767,7 @@
                       <label class="form-label">Imagen de Fondo (Hero)</label>
                       <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
                         <input type="text" name="hero_bg_url" id="branding_hero_bg_url" class="form-control" placeholder="https://ejemplo.com/fondo.jpg (Opcional)">
-                        <input type="file" id="branding_hero_bg_file" style="display:none" accept="image/*">
+                        <input type="file" id="branding_hero_bg_file" style="display:none" accept="image/jpeg, image/png, image/webp">
                         <button type="button" class="btn btn-ghost btn-sm" onclick="$('#branding_hero_bg_file').click()"><i class="fas fa-upload"></i></button>
                       </div>
                       <div id="branding_hero_bg_preview" style="height:100px; background:rgba(255,255,255,0.03); border:1px dashed rgba(255,255,255,0.1); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden">
@@ -1017,7 +1017,7 @@
                   <i class="fas fa-plus" aria-hidden="true"></i>
                 </button>
 
-                <input type="file" id="vfPhotoFile" accept="image/*,.zip" multiple style="display:none" onchange="handleLocalPhoto(event)">
+                <input type="file" id="vfPhotoFile" accept="image/jpeg, image/png, image/webp, .zip" multiple style="display:none" onchange="handleLocalPhoto(event)">
                 <button type="button" class="btn btn-primary" onclick="document.getElementById('vfPhotoFile').click()" title="Subir desde PC">
                   <i class="fas fa-upload" aria-hidden="true"></i> PC
                 </button>
@@ -1342,7 +1342,7 @@
               </div>
               <div style="flex:1">
                 <input type="url" id="efLogo" class="form-control" placeholder="https://..." style="margin-bottom:.5rem">
-                <input type="file" id="efLogoFile" style="display:none" accept="image/*">
+                <input type="file" id="efLogoFile" style="display:none" accept="image/jpeg, image/png, image/webp">
                 <button type="button" class="btn btn-ghost btn-sm" onclick="$('#efLogoFile').click()">
                   <i class="fas fa-upload"></i> Subir imagen
                 </button>
