@@ -1027,34 +1027,6 @@ async function saveVehicle() {
     return;
   }
 
-  // Smart Validation: Check for duplicate plate when creating a new record
-  if (!id) {
-    const existing = allVehicles.find(v => v.patent?.toLowerCase() === patent.toLowerCase());
-    if (existing) {
-      const msg = `Atención: Ya existe un vehículo registrado con la patente ${patent} (${existing.brand} ${existing.model}).\n\n¿Querés ACTUALIZAR el vehículo existente con los datos nuevos?`;
-      if (confirm(msg)) {
-        // Switch to update mode using the existing vehicle's ID
-        data.id = existing.id;
-        try {
-          if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...'; }
-          await apiUpdate('vehicles', existing.id, data);
-          showToast('¡Actualizado!', `El vehículo con patente ${patent} ha sido actualizado.`, 'success');
-          closeModal('vehicleModal');
-          await loadVehicles();
-          if (currentPanel === 'dashboard') renderDashboard();
-          return; // Exit early
-        } catch (err) {
-          showToast('Error', `No se pudo actualizar: ${err.message}`, 'error');
-          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-floppy-disk"></i> Guardar vehículo'; }
-          return;
-        }
-      } else {
-        // User cancelled the update, so we don't proceed with creation either
-        return;
-      }
-    }
-  }
-
   // Flush any pending text in the tag inputs
   const pendingFeature = $('#vfFeatureInput')?.value.trim();
   if (pendingFeature && !vehicleFeatures.includes(pendingFeature)) {
@@ -1092,6 +1064,34 @@ async function saveVehicle() {
   };
 
   const btn = $('#btnSaveVehicle');
+
+  // Smart Validation: Check for duplicate plate when creating a new record
+  if (!id) {
+    const existing = allVehicles.find(v => v.patent?.toLowerCase() === patent.toLowerCase());
+    if (existing) {
+      const msg = `Atención: Ya existe un vehículo registrado con la patente ${patent} (${existing.brand} ${existing.model}).\n\n¿Querés ACTUALIZAR el vehículo existente con los datos nuevos?`;
+      if (confirm(msg)) {
+        // Switch to update mode using the existing vehicle's ID
+        data.id = existing.id;
+        try {
+          if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Actualizando...'; }
+          await apiUpdate('vehicles', existing.id, data);
+          showToast('¡Actualizado!', `El vehículo con patente ${patent} ha sido actualizado.`, 'success');
+          closeModal('vehicleModal');
+          await loadVehicles();
+          if (currentPanel === 'dashboard') renderDashboard();
+          return; // Exit early
+        } catch (err) {
+          showToast('Error', `No se pudo actualizar: ${err.message}`, 'error');
+          if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-floppy-disk"></i> Guardar vehículo'; }
+          return;
+        }
+      } else {
+        // User cancelled the update, so we don't proceed with creation either
+        return;
+      }
+    }
+  }
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; }
 
   try {
