@@ -149,6 +149,7 @@ async function doLogin(username, password) {
 let allVehicles = [];
 let allMaintenance = [];
 let allLeads = [];
+let allAlerts = [];
 let allBranches = [];
 let allUsers = [];
 let vehiclePhotos = [];
@@ -1099,8 +1100,10 @@ async function saveVehicle() {
       await apiUpdate('vehicles', id, data);
       showToast('¡Actualizado!', `${year} ${brand} ${model} actualizado correctamente.`, 'success');
     } else {
-      await apiCreate('vehicles', data);
+      const newVehicle = await apiCreate('vehicles', data);
       showToast('¡Creado!', `${year} ${brand} ${model} agregado al inventario.`, 'success');
+      // Comprobar coincidencias con alertas
+      checkVehicleAlertsMatch(data);
     }
     closeModal('vehicleModal');
     await loadVehicles();
@@ -2113,7 +2116,7 @@ async function initAdmin(user) {
 
     try {
 
-      await Promise.all([loadLeads(), loadVehicles()]);
+      await Promise.all([loadLeads(), loadVehicles(), loadAlerts()]);
     } catch (err) {
       console.warn('[AutoRefresh] Error al refrescar datos:', err);
     }
@@ -2125,6 +2128,7 @@ async function initAdmin(user) {
     loadMaintenance(),
     loadLeads(),
     loadBranches(),
+    loadAlerts(),
   ]);
 
   renderRoleBasedUI();
@@ -2468,3 +2472,131 @@ function handleExcelImport(event) {
   };
   reader.readAsArrayBuffer(file);
 }
+
+// ============================================================
+// VEHICLE ALERTS
+// ============================================================
+async function loadAlerts() {
+  try {
+    const data = await apiGet('vehicle_alerts?order=created_at.desc');
+    allAlerts = data || [];
+    if (currentPanel === 'alerts') renderAlerts();
+  } catch (err) {
+    console.warn('No se pudieron cargar las alertas:', err);
+  }
+}
+
+function renderAlerts() {
+  const tbody = $('#alertsTableBody');
+  if (!tbody) return;
+
+  const statusFilter = $('#alertStatusFilter')?.value || '';
+  let items = [...allAlerts];
+
+  if (statusFilter) {
+    const isActive = statusFilter === 'activa';
+    items = items.filter(a => a.is_active === isActive);
+  }
+
+  if (items.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><i class="fas fa-bell-slash" style="font-size:2rem;display:block;margin-bottom:1rem;color:var(--color-gray)"></i>No hay alertas registradas</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = items.map(a => {
+    const date = new Date(a.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const waUrl = `https://wa.me/${(a.phone || '').replace(/\\D/g, '')}?text=${encodeURIComponent('Hola ' + a.name + ', somos de la concesionaria. Vimos tu alerta por un ' + a.brand + ' ' + a.model + '...')}`;
+    
+    // Check expiration (60 days)
+    const msSinceCreation = Date.now() - new Date(a.created_at).getTime();
+    const daysSinceCreation = msSinceCreation / (1000 * 60 * 60 * 24);
+    const isExpired = daysSinceCreation > 60;
+    
+    // Auto-update to inactive in UI if expired
+    const effectiveActive = a.is_active && !isExpired;
+    
+    return `
+      <tr style="opacity: ${effectiveActive ? '1' : '0.6'}">
+        <td>
+          <div style="font-weight:700">${escapeHtml(a.name)}</div>
+        </td>
+        <td>
+          <a href="${waUrl}" target="_blank" style="color:var(--color-success);font-weight:600;display:flex;align-items:center;gap:4px">
+            <i class="fab fa-whatsapp"></i> ${escapeHtml(a.phone)}
+          </a>
+        </td>
+        <td>
+          <div style="font-weight:700;color:var(--color-yellow)">${escapeHtml(a.brand || '')}</div>
+          <div style="font-size:0.8rem;color:var(--color-gray-light)">${escapeHtml(a.model || '')}</div>
+        </td>
+        <td>
+          <div class="badge badge-info">${a.min_year || 'Cualquiera'} - ${a.max_year || 'Cualquiera'}</div>
+        </td>
+        <td>
+          <span class="badge ${effectiveActive ? 'badge-success' : 'badge-danger'}">
+            ${effectiveActive ? 'Activa' : (isExpired ? 'Vencida' : 'Inactiva')}
+          </span>
+        </td>
+        <td style="font-size:0.85rem">${date}</td>
+        <td>
+          <div class="table-actions">
+            ${a.is_active ? `
+              <button class="btn btn-warning btn-sm btn-icon" title="Marcar inactiva" onclick="updateAlertStatus('${a.id}', false)">
+                <i class="fas fa-ban"></i>
+              </button>
+            ` : `
+              <button class="btn btn-success btn-sm btn-icon" title="Marcar activa" onclick="updateAlertStatus('${a.id}', true)">
+                <i class="fas fa-check"></i>
+              </button>
+            `}
+            <button class="btn btn-danger btn-sm btn-icon" title="Eliminar" onclick="confirmDelete('vehicle_alerts', '${a.id}', '¿Eliminar alerta de ${escapeHtml(a.name)}?', loadAlerts)">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function updateAlertStatus(id, isActive) {
+  try {
+    await apiUpdate('vehicle_alerts', id, { is_active: isActive });
+    showToast('Actualizado', 'Estado de la alerta modificado.', 'success');
+    await loadAlerts();
+  } catch (err) {
+    showToast('Error', 'No se pudo actualizar: ' + err.message, 'error');
+  }
+}
+
+function checkVehicleAlertsMatch(vehicleData) {
+  const activeAlerts = allAlerts.filter(a => a.is_active);
+  const matches = [];
+
+  const vBrand = (vehicleData.brand || '').toLowerCase();
+  const vModel = (vehicleData.model || '').toLowerCase();
+  const vYear = vehicleData.year;
+
+  for (const alert of activeAlerts) {
+    const aBrand = (alert.brand || '').toLowerCase();
+    const aModel = (alert.model || '').toLowerCase();
+    
+    const brandMatch = !aBrand || vBrand.includes(aBrand) || aBrand.includes(vBrand);
+    const modelMatch = !aModel || vModel.includes(aModel) || aModel.includes(vModel);
+    
+    const minYearMatch = !alert.min_year || vYear >= alert.min_year;
+    const maxYearMatch = !alert.max_year || vYear <= alert.max_year;
+
+    if (brandMatch && modelMatch && minYearMatch && maxYearMatch) {
+      matches.push(alert);
+    }
+  }
+
+  if (matches.length > 0) {
+    showToast('¡Alerta de Cliente!', `Este vehículo coincide con el interés de ${matches.length} cliente(s). Revisá la pestaña Alertas.`, 'warning');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  $('#alertStatusFilter')?.addEventListener('change', renderAlerts);
+});

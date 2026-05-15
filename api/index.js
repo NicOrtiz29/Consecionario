@@ -18,7 +18,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
 );
 
-const PUBLIC_TABLES = ['vehicles', 'branches', 'leads', 'maintenance'];
+const PUBLIC_TABLES = ['vehicles', 'branches', 'leads', 'maintenance', 'vehicle_alerts'];
 
 // ─── MIDDLEWARES ───
 async function detectTenant(req, res, next) {
@@ -91,7 +91,14 @@ app.post('/api/auth/login', async (req, res) => {
       if (emp) empresaId = emp.id;
     }
 
-    const { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
+    let { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).maybeSingle();
+    
+    // Si no encuentra la 1 en localhost, agarramos la primera que haya
+    if (!empresa && (host.includes('localhost') || host.includes('127.0.0.1'))) {
+      const { data: firstEmp } = await supabase.from('empresas').select('*').limit(1).maybeSingle();
+      empresa = firstEmp;
+    }
+
     if (!empresa) return res.status(404).json({ error: 'Empresa no encontrada' });
 
     // 1. Buscar todos los usuarios con ese nombre que estén activos
@@ -121,11 +128,17 @@ app.post('/api/auth/login', async (req, res) => {
 
     if (!foundUser) return res.status(401).json({ error: 'Credenciales inválidas' });
 
-    // 3. Si el usuario pertenece a otra empresa, cambiamos el contexto de la sesión a esa empresa
+    // 3. Si el usuario pertenece a otra empresa (y no es superadmin), intentamos cambiar el contexto
     let targetEmpresa = empresa;
-    if (foundUser.empresa_id !== empresa.id) {
-      const { data: otherEmp } = await supabase.from('empresas').select('*').eq('id', foundUser.empresa_id).single();
+    if (foundUser.role !== 'superadmin' && foundUser.empresa_id !== empresa.id) {
+      const { data: otherEmp } = await supabase.from('empresas').select('*').eq('id', foundUser.empresa_id).maybeSingle();
       if (otherEmp) targetEmpresa = otherEmp;
+      else return res.status(403).json({ error: 'Tu usuario no tiene una empresa válida asignada' });
+    }
+
+    // Si es superadmin y no tiene empresa_id, usamos la detectada por defecto
+    if (foundUser.role === 'superadmin' && !foundUser.empresa_id) {
+      targetEmpresa = empresa;
     }
 
     // IMPORTANTE: El token se genera con el ID de la empresa del USUARIO (o la detectada si coinciden)
@@ -170,16 +183,17 @@ app.get('/api/auth/verify', authenticateToken, async (req, res) => {
 // Obtener configuración de marca (Público)
 app.get('/api/config', async (req, res) => {
   try {
-    const { data: empresa, error } = await supabase
-      .from('empresas')
-      .select('*')
-      .eq('id', req.empresaId)
-      .single();
+    let { data: empresa } = await supabase.from('empresas').select('*').eq('id', req.empresaId).maybeSingle();
     
-    if (error) throw error;
+    if (!empresa && (!req.hostname || req.hostname.includes('localhost'))) {
+      const { data: firstEmp } = await supabase.from('empresas').select('*').limit(1).maybeSingle();
+      empresa = firstEmp;
+    }
+
+    if (!empresa) return res.status(404).json({ error: 'Empresa no encontrada' });
     res.json(empresa);
   } catch (err) {
-    res.status(500).json({ error: 'Error al cargar configuración' });
+    res.status(500).json({ error: 'Error al cargar configuración', details: err.message });
   }
 });
 
@@ -241,18 +255,31 @@ app.get('/api/tables/:table', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/tables/:table', authenticateToken, async (req, res) => {
+app.post('/api/tables/:table', (req, res, next) => {
+  const { table } = req.params;
+  if (PUBLIC_TABLES.includes(table)) {
+    return next(); // Bypass auth for public tables
+  }
+  authenticateToken(req, res, next);
+}, async (req, res) => {
   try {
     const { table } = req.params;
-    let empresaId = req.user.empresa_id;
-    if (req.user.role === 'superadmin' && req.headers['x-empresa-id']) empresaId = Number(req.headers['x-empresa-id']);
+    let empresaId = req.empresaId || 1;
+    
+    if (req.user) {
+      empresaId = req.user.empresa_id;
+      if (req.user.role === 'superadmin' && req.headers['x-empresa-id']) empresaId = Number(req.headers['x-empresa-id']);
+    }
     
     const payload = { ...req.body, empresa_id: empresaId };
     const { data, error } = await supabase.from(table).insert([payload]).select();
     if (error) throw error;
     await logAction(req.user, 'CREATE', table, data[0].id, payload);
     res.status(201).json(data[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    console.error('[POST Table Error]:', err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 // Endpoint especial para actualizar configuración de marca (Empresa)

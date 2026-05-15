@@ -853,3 +853,71 @@ function calculateGenSim() {
     if (res) res.textContent = 'Consultar';
   }
 }
+
+// ============================================================
+// WISH LIST / VEHICLE ALERTS
+// ============================================================
+const btnOpenAlert = $('#btnOpenAlert');
+const alertModal = $('#alertModal');
+const alertForm = $('#alertForm');
+
+if (btnOpenAlert && alertModal) {
+  btnOpenAlert.addEventListener('click', () => {
+    alertModal.style.display = 'flex';
+    setTimeout(() => {
+      alertModal.classList.add('show');
+    }, 10);
+  });
+}
+
+function closeAlertModal() {
+  if (alertModal) {
+    alertModal.classList.remove('show');
+    setTimeout(() => {
+      alertModal.style.display = 'none';
+    }, 300);
+  }
+}
+window.closeAlertModal = closeAlertModal;
+
+if (alertForm) {
+  alertForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = alertForm.querySelector('button[type="submit"]');
+    const ogHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+
+    const payload = {
+      name: $('#alertName').value,
+      phone: $('#alertPhone').value,
+      brand: $('#alertBrand').value,
+      model: $('#alertModel').value,
+      min_year: parseInt($('#alertMinYear').value) || null,
+      max_year: parseInt($('#alertMaxYear').value) || null,
+      is_active: true
+    };
+
+    try {
+      const apiBase = window.APP_CONFIG?.API_URL || 'http://localhost:3005/api';
+      const res = await fetch(`${apiBase}/tables/vehicle_alerts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) throw new Error('Error al crear alerta');
+      
+      showToast('¡Alerta guardada!', 'Te vamos a avisar cuando ingrese un vehículo que coincida.', 'success');
+      alertForm.reset();
+      closeAlertModal();
+    } catch (err) {
+      console.error(err);
+      showToast('Error', 'Hubo un problema al guardar la alerta. Intentá de nuevo.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = ogHtml;
+    }
+  });
+}
+

@@ -680,6 +680,60 @@
     </div>
   </footer>
 
+  <!-- WISH LIST / ALERTAS FLOTANTE -->
+  <button id="btnOpenAlert" class="btn-floating-alert fade-in-up" aria-label="Te avisamos cuando ingrese un auto">
+    <i class="fas fa-bell"></i>
+    <span class="floating-alert-text">¿No encontrás tu auto? ¡Te avisamos!</span>
+  </button>
+
+  <!-- MODAL DE ALERTAS -->
+  <div class="modal-backdrop" id="alertModal" style="display: none;">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title"><i class="fas fa-bell text-yellow"></i> Pedí tu auto</h3>
+        <button class="btn btn-ghost btn-sm" onclick="closeAlertModal()"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--color-gray); font-size:0.9rem; margin-bottom:1.5rem;">
+          Dejanos tus datos y qué vehículo estás buscando. Cuando ingrese uno que coincida, te avisamos por WhatsApp para que seas el primero en verlo. (Tu alerta estará activa por 60 días).
+        </p>
+        <form id="alertForm">
+          <div class="grid grid-2" style="gap:1rem; margin-bottom:1rem;">
+            <div>
+              <label class="form-label">Tu Nombre</label>
+              <input type="text" id="alertName" class="form-control" placeholder="Ej: Juan Pérez" required>
+            </div>
+            <div>
+              <label class="form-label">WhatsApp</label>
+              <input type="tel" id="alertPhone" class="form-control" placeholder="11 2345 6789" required>
+            </div>
+          </div>
+          <div class="grid grid-2" style="gap:1rem; margin-bottom:1rem;">
+            <div>
+              <label class="form-label">Marca buscada</label>
+              <input type="text" id="alertBrand" class="form-control" placeholder="Ej: Volkswagen" required>
+            </div>
+            <div>
+              <label class="form-label">Modelo buscado</label>
+              <input type="text" id="alertModel" class="form-control" placeholder="Ej: Golf o Vento" required>
+            </div>
+          </div>
+          <div class="grid grid-2" style="gap:1rem; margin-bottom:1.5rem;">
+            <div>
+              <label class="form-label">Año mínimo</label>
+              <input type="number" id="alertMinYear" class="form-control" placeholder="Ej: 2015" min="1990" max="2026">
+            </div>
+            <div>
+              <label class="form-label">Año máximo</label>
+              <input type="number" id="alertMaxYear" class="form-control" placeholder="Ej: 2021" min="1990" max="2026">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%;"><i class="fas fa-paper-plane"></i> Crear Alerta</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST CONTAINER -->
   <div class="toast-container" id="toastContainer" aria-live="assertive" aria-atomic="true"></div>
 

@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 const JWT_SECRET = process.env.JWT_SECRET || 'bbruno_secret_key_2024_safe';
-const PUBLIC_TABLES = ['vehicles', 'branches', 'leads', 'maintenance'];
+const PUBLIC_TABLES = ['vehicles', 'branches', 'leads', 'maintenance', 'vehicle_alerts'];
 
 // Helper: detectar tenant por hostname
 async function detectTenantId(hostname) {
@@ -417,13 +417,15 @@ exports.handler = async (event) => {
         return { statusCode: 200, headers: debugHeaders, body: JSON.stringify(data) };
       }
 
-      if (!user) return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
+      if (!user && !PUBLIC_TABLES.includes(table)) {
+        return { statusCode: 401, headers: securityHeaders, body: JSON.stringify({ error: 'Auth requerida' }) };
+      }
 
       if (event.httpMethod === 'POST') {
         const payload = { ...JSON.parse(event.body), empresa_id: empresaId };
         const { data, error } = await supabase.from(table).insert([payload]).select();
         if (error) throw error;
-        await logAction(user, 'CREATE', table, data[0].id, payload);
+        if (user) await logAction(user, 'CREATE', table, data[0].id, payload);
         return { statusCode: 201, headers: securityHeaders, body: JSON.stringify(data[0]) };
       }
 
