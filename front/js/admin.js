@@ -1930,32 +1930,46 @@ async function initSuperadminFeatures(user) {
 async function initAdmin(user) {
   currentUser = user;
 
-  // Listeners para subida de imágenes de branding
-  $('#branding_logo_file')?.addEventListener('change', async (e) => {
-    if (e.target.files?.[0]) await handleBrandingImageUpload(e.target.files[0], 'branding_logo_url');
-  });
-  $('#branding_hero_bg_file')?.addEventListener('change', async (e) => {
-    if (e.target.files?.[0]) await handleBrandingImageUpload(e.target.files[0], 'branding_hero_bg_url');
-  });
-  $('#efLogoFile')?.addEventListener('change', async (e) => {
-    if (e.target.files?.[0]) {
-      const url = await handleBrandingImageUpload(e.target.files[0], 'efLogo');
-      if (url) updateLogoPreview(url);
+  // 1. ACTIVAR LISTENERS INMEDIATAMENTE (Para que funcionen aunque falle el branding)
+  $('#logoutBtn')?.addEventListener('click', logout);
+  $('#btnNewVehicle')?.addEventListener('click', () => openVehicleModal());
+  $('#btnSaveVehicle')?.addEventListener('click', saveVehicle);
+  $('#vehicleSearch')?.addEventListener('input', filterVehiclesTable);
+  $('#vehicleStatusFilter')?.addEventListener('change', filterVehiclesTable);
+  $('#btnAddPhoto')?.addEventListener('click', window.addPhoto);
+  $('#btnNewMaintenance')?.addEventListener('click', () => { populateVehicleSelect(); openMaintenanceModal(); });
+  $('#btnSaveMaintenance')?.addEventListener('click', saveMaintenance);
+  $('#maintSearch')?.addEventListener('input', () => renderMaintenanceList(allMaintenance));
+  $('#leadStatusFilter')?.addEventListener('change', () => renderLeadsList(allLeads));
+  $('#btnNewUser')?.addEventListener('click', () => openUserModal());
+  $('#btnSaveUser')?.addEventListener('click', saveUser);
+  $('#brandingForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = e.target.querySelector('button[type=submit]');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...'; }
+    try {
+        const dbColumns = ['nombre', 'logo_url', 'whatsapp', 'color_primario', 'color_secundario', 'hero_titulo', 'hero_subtitulo', 'instagram', 'facebook', 'direccion', 'mapa_url', 'mostrar_financiacion'];
+        const payload = {}; const siteContent = {};
+        const allFields = e.target.elements;
+        for (let i = 0; i < allFields.length; i++) {
+            const el = allFields[i];
+            if (!el.name || el.type === 'submit') continue;
+            const val = el.type === 'checkbox' ? el.checked : el.value;
+            if (dbColumns.includes(el.name)) payload[el.name] = val;
+            else siteContent[el.name] = val;
+        }
+        if (Object.keys(siteContent).length > 0) payload.site_content = siteContent;
+        await apiFetch('/admin/config', { method: 'POST', body: payload });
+        showToast('Éxito', 'Configuración de marca actualizada correctamente', 'success');
+        setTimeout(() => location.reload(), 1500);
+    } catch (err) {
+        showToast('Error', 'No se pudo guardar: ' + err.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Guardar Configuración'; }
     }
   });
 
-  await initSuperadminFeatures(user);
-
-  const login = $('#loginScreen');
-  const app = $('#adminApp');
-  if (login) login.style.display = 'none';
-  if (app) { app.style.display = 'block'; }
-
-  const ua = $('#userAvatar'); if (ua) ua.textContent = (user.full_name||'A')[0].toUpperCase();
-  const un = $('#userName'); if (un) un.textContent = user.full_name || user.username;
-  const ur = $('#userRole'); if (ur) ur.textContent = user.role || '';
-
-  // Cargar branding dinámico de la empresa (logo, nombre, etc.)
+  // 2. CARGAR BRANDING (Si falla, no rompe lo de arriba)
   try {
     const empresaConfig = await apiFetch('/config');
     if (empresaConfig) {

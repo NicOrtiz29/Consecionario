@@ -245,8 +245,14 @@ exports.handler = async (event) => {
         empresaId = await detectTenantId(hostname);
       }
       
-      const { data: empresa, error } = await supabase.from('empresas').select('*').eq('id', empresaId).single();
-      if (error) throw error;
+      let { data: empresa } = await supabase.from('empresas').select('*').eq('id', empresaId).maybeSingle();
+      
+      if (!empresa) {
+        const { data: firstEmp } = await supabase.from('empresas').select('*').limit(1).maybeSingle();
+        empresa = firstEmp;
+      }
+
+      if (!empresa) return { statusCode: 404, headers: securityHeaders, body: JSON.stringify({ error: 'Empresa no encontrada' }) };
       return { statusCode: 200, headers: securityHeaders, body: JSON.stringify(empresa) };
     }
 
